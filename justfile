@@ -45,11 +45,16 @@ changelog:
 
 # Start docker-compose (PostgreSQL + Commons)
 up:
-    docker compose -f docker/docker-compose.yml up -d
+    docker compose up -d
 
 # Stop docker-compose
 down:
-    docker compose -f docker/docker-compose.yml down
+    docker compose down
+
+# Reset docker volumes
+reset:
+    docker compose down -v
+    docker compose up -d
 
 # Run the end-to-end demo test
 demo:
