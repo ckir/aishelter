@@ -4,16 +4,16 @@ use tower_http::trace::TraceLayer;
 
 /// Create the main application router with all sub-routes mounted.
 pub fn create_app(pool: PgPool) -> Router {
-    let app = Router::new()
+    Router::new()
         .route("/v1/health", get(health_check))
         .route("/v1/version", get(version_check))
-        .nest("/v1/agents", ac_registry::handler::routes())
-        .nest("/v1/discovery", ac_discovery::handler::routes())
-        .nest("/v1/messages", ac_mailbox::handler::routes())
-        .nest("/v1/tasks", ac_tasks::handler::routes())
-        .layer(TraceLayer::new_for_http());
-
-    app
+        .nest("/v1/agents", ac_registry::handler::routes(pool.clone()))
+        .nest("/v1/discovery", ac_discovery::handler::routes(pool.clone()))
+        .nest("/v1/messages", ac_mailbox::handler::routes(pool.clone()))
+        .nest("/v1/tasks", ac_tasks::handler::routes(pool.clone()))
+        .nest("/v1/validations", ac_validation::handler::routes(pool.clone()))
+        .nest("/v1/agents", ac_reputation::handler::routes(pool.clone()))
+        .layer(TraceLayer::new_for_http())
 }
 
 async fn health_check() -> &'static str {

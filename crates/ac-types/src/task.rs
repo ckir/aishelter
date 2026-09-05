@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use crate::agent::AgentId;
-use sqlx::FromRow;
 
 /// Task lifecycle states.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,23 +38,17 @@ impl std::str::FromStr for TaskStatus {
 }
 
 /// A task contract between agents.
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub task_id: String,
-    #[sqlx(rename = "requester_agent_id")]
     pub requester: AgentId,
-    #[sqlx(skip)]
     pub assigned_agent_id: Option<AgentId>,
     pub capability: String,
     pub description: String,
     pub input: serde_json::Value,
-    #[sqlx(skip)]
     pub output: Option<serde_json::Value>,
-    #[sqlx(skip)]
     pub constraints_deadline: Option<DateTime<Utc>>,
-    #[sqlx(skip)]
     pub verification_method: String,
-    #[sqlx(skip)]
     pub required_validators: i32,
     pub status: TaskStatus,
     pub created_at: DateTime<Utc>,

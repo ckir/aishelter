@@ -1,23 +1,26 @@
 use axum::{
     Router,
     routing::{get, post},
-    extract::{State, Path, Query},
+    extract::{Path, Query, State},
     Json,
 };
 use serde::Deserialize;
-use super::service::MailboxService;
-use std::sync::Arc;
+use sqlx::PgPool;
 
-pub fn routes() -> Router {
+use super::service::MailboxService;
+
+pub fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/", post(send_message))
         .route("/", get(get_messages))
         .route("/{id}", get(get_message))
         .route("/{id}/ack", post(acknowledge_message))
+        .with_state(pool)
 }
 
 #[derive(Deserialize)]
 pub struct GetMessagesQuery {
+    agent_id: String,
     unacknowledged: Option<bool>,
 }
 
@@ -32,9 +35,10 @@ pub struct SendMessageRequest {
 }
 
 async fn send_message(
-    State(service): State<Arc<MailboxService>>,
+    State(pool): State<PgPool>,
     Json(req): Json<SendMessageRequest>,
 ) -> Json<serde_json::Value> {
+    let service = MailboxService::new(pool);
     let expires_at = req
         .expires_at
         .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
@@ -50,28 +54,29 @@ async fn send_message(
         )
         .await
     {
-        Ok(msg) => Json(serde_json::json!({ "data": msg })),
+        Ok(_) => Json(serde_json::json!({ "status": "sent" })),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
 async fn get_messages(
-    State(service): State<Arc<MailboxService>>,
-    query: Option<Query<GetMessagesQuery>>,
+    State(pool): State<PgPool>,
+    Query(query): Query<GetMessagesQuery>,
 ) -> Json<serde_json::Value> {
-    let agent_id = "agent_placeholder".to_string(); // TODO: extract from auth
-    let only_unacknowledged = query.and_then(|q| q.unacknowledged).unwrap_or(false);
+    let service = MailboxService::new(pool);
+    let only_unacknowledged = query.unacknowledged.unwrap_or(false);
 
-    match service.get_messages(&agent_id, only_unacknowledged).await {
-        Ok(msgs) => Json(serde_json::json!({ "data": msgs })),
+    match service.get_messages(&query.agent_id, only_unacknowledged).await {
+        Ok(msgs) => Json(serde_json::json!({ "data": msgs.len(), "messages": msgs })),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
 async fn get_message(
-    State(service): State<Arc<MailboxService>>,
+    State(pool): State<PgPool>,
     Path(id): Path<String>,
 ) -> Json<serde_json::Value> {
+    let service = MailboxService::new(pool);
     match service.get_message(&id).await {
         Ok(msg) => Json(serde_json::json!({ "data": msg })),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
@@ -79,9 +84,10 @@ async fn get_message(
 }
 
 async fn acknowledge_message(
-    State(service): State<Arc<MailboxService>>,
+    State(pool): State<PgPool>,
     Path(id): Path<String>,
 ) -> Json<serde_json::Value> {
+    let service = MailboxService::new(pool);
     match service.acknowledge_message(&id).await {
         Ok(_) => Json(serde_json::json!({ "status": "acknowledged" })),
         Err(e) => Json(serde_json::json!({ "error": e.to_string() })),

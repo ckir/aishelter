@@ -3,7 +3,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct AgentRow {
     pub agent_id: String,
     pub public_key: String,
@@ -34,21 +34,20 @@ impl RegistryService {
     ) -> Result<AgentRow, AcError> {
         let now = Utc::now();
 
-        sqlx::query_as!(
-            AgentRow,
+        sqlx::query_as::<_, AgentRow>(
             r#"
             INSERT INTO agents (agent_id, public_key, profile_name, profile_description, status, created_at, updated_at)
             VALUES ($1, $2, $3, $4, 'REGISTERED', $5, $6)
             ON CONFLICT (public_key) DO NOTHING
             RETURNING agent_id, public_key, profile_name, profile_description, status, created_at, updated_at
             "#,
-            agent_id,
-            public_key,
-            profile_name,
-            profile_description,
-            now,
-            now,
         )
+        .bind(agent_id)
+        .bind(public_key)
+        .bind(profile_name)
+        .bind(profile_description)
+        .bind(now)
+        .bind(now)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| AcError::Database(e.to_string()))?
@@ -57,15 +56,14 @@ impl RegistryService {
 
     /// Retrieve an agent by ID.
     pub async fn get_agent(&self, agent_id: &str) -> Result<AgentRow, AcError> {
-        sqlx::query_as!(
-            AgentRow,
+        sqlx::query_as::<_, AgentRow>(
             r#"
             SELECT agent_id, public_key, profile_name, profile_description, status, created_at, updated_at
             FROM agents
             WHERE agent_id = $1
             "#,
-            agent_id,
         )
+        .bind(agent_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| AcError::Database(e.to_string()))?
@@ -81,17 +79,17 @@ impl RegistryService {
     ) -> Result<(), AcError> {
         let now = Utc::now();
 
-        let rows_affected = sqlx::query!(
+        let rows_affected = sqlx::query(
             r#"
             UPDATE agents
             SET profile_name = $1, profile_description = $2, updated_at = $3
             WHERE agent_id = $4
             "#,
-            name,
-            description,
-            now,
-            agent_id,
         )
+        .bind(name)
+        .bind(description)
+        .bind(now)
+        .bind(agent_id)
         .execute(&self.pool)
         .await
         .map_err(|e| AcError::Database(e.to_string()))?
