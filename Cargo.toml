@@ -1,3 +1,9 @@
+[package]
+name = "aishelter"
+version = "0.1.0"
+edition = "2024"
+license = "PolyForm-Noncommercial-1.0.0"
+
 [workspace]
 members = [
     "crates/ac-types",
@@ -36,3 +42,21 @@ tower = "0.5"
 tower-http = { version = "0.6", features = ["trace", "cors", "limit"] }
 reqwest = { version = "0.12", features = ["json"] }
 utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }
+
+[dev-dependencies]
+reqwest = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[workspace.metadata.release]
+shared-version = true
+tag-name = "v{{version}}"
+tag-prefix = ""
+pre-release-commit-message = "release: v{{version}}"
+publish = false
+
+[profile.ci]
+inherits = "dev"
+debug = 0
+strip = "debuginfo"

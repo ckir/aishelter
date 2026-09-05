@@ -1,7 +1,9 @@
 /// End-to-end integration tests for Agent Commons.
 ///
-/// Test the first demonstration scenario from §63 of the spec:
-/// Agent A registers → publishes card → Agent B registers → A discovers B →
-/// A creates task → B accepts → B submits → 2 validators verify →
-/// receipt created → VWU + reputation event emitted.
+/// Tests the full demonstration scenarios from the spec:
+/// - §63: First end-to-end demo (register → discover → task → validate → receipt)
+/// - §64: Asynchronous mailbox (offline agent receives task)
+/// - Adversarial: replay attacks, forgery, invalid transitions, spam
+///
+/// Run with: `DATABASE_URL=postgresql://... cargo test --test integration e2e -- --ignored`
 mod e2e;

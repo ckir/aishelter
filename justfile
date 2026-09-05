@@ -63,3 +63,8 @@ demo:
 # Clean build artifacts
 clean:
     cargo clean
+
+# Release: bump version, tag, and commit all crates in lockstep
+# Usage: just release <patch|minor|major>
+release VERSION_BUMP:
+    cargo release {{VERSION_BUMP}} --workspace --execute
