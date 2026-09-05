@@ -9,7 +9,7 @@ FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --recipe-path recipe.json
 COPY . .
-RUN cargo build --release --bin agent-commons
+RUN cargo build --release -p ac-server --bin agent-commons
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
