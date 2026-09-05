@@ -1,0 +1,38 @@
+[workspace]
+members = [
+    "crates/ac-types",
+    "crates/ac-crypto",
+    "crates/ac-db",
+    "crates/ac-api",
+    "crates/ac-registry",
+    "crates/ac-discovery",
+    "crates/ac-mailbox",
+    "crates/ac-tasks",
+    "crates/ac-validation",
+    "crates/ac-reputation",
+    "crates/ac-server",
+]
+resolver = "2"
+
+[workspace.package]
+license = "PolyForm-Noncommercial-1.0.0"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "macros"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+ed25519-dalek = { version = "2", features = ["rand_core", "signature"] }
+sha2 = "0.10"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+thiserror = "2"
+anyhow = "1"
+config = "0.14"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors", "limit"] }
+reqwest = { version = "0.12", features = ["json"] }
+utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }

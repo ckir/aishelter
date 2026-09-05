@@ -1,0 +1,13 @@
+[package]
+name = "ac-api"
+version = "0.1.0"
+edition = "2024"
+license = "PolyForm-Noncommercial-1.0.0"
+
+[dependencies]
+ac-types = { path = "../ac-types" }
+ac-crypto = { path = "../ac-crypto" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+axum = { workspace = true }

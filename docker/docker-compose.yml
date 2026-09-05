@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aishelter
+      POSTGRES_USER: aishelter
+      POSTGRES_PASSWORD: aishelter
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aishelter"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  commons:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      AC_DATABASE_URL: postgresql://aishelter:aishelter@postgres:5432/aishelter
+      AC_HOST: 0.0.0.0
+      AC_PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

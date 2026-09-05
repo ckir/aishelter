@@ -1,0 +1,16 @@
+[package]
+name = "ac-discovery"
+version = "0.1.0"
+edition = "2024"
+license = "PolyForm-Noncommercial-1.0.0"
+
+[dependencies]
+ac-types = { path = "../ac-types" }
+ac-db = { path = "../ac-db" }
+ac-api = { path = "../ac-api" }
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
