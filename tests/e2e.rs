@@ -313,6 +313,7 @@ async fn discover(c: &Client, b: &str, cap: &str) -> Vec<serde_json::Value> {
     body["results"].as_array().cloned().unwrap_or_default()
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn task(
     c: &Client,
     b: &str,

@@ -3,6 +3,17 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+type MessageRow = (
+    Uuid,
+    String,
+    String,
+    String,
+    serde_json::Value,
+    Option<chrono::DateTime<Utc>>,
+    chrono::DateTime<Utc>,
+    bool,
+);
+
 pub struct MailboxService {
     pool: PgPool,
 }
@@ -68,16 +79,7 @@ impl MailboxService {
              AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC"
         };
 
-        let rows: Vec<(
-            Uuid,
-            String,
-            String,
-            String,
-            serde_json::Value,
-            Option<chrono::DateTime<Utc>>,
-            chrono::DateTime<Utc>,
-            bool,
-        )> = sqlx::query_as(query)
+        let rows: Vec<MessageRow> = sqlx::query_as(query)
             .bind(agent_id)
             .fetch_all(&self.pool)
             .await
@@ -104,7 +106,7 @@ impl MailboxService {
         let id = Uuid::parse_str(message_id)
             .map_err(|e| AcError::Internal(format!("invalid message_id: {}", e)))?;
 
-        let row: Option<(Uuid, String, String, String, serde_json::Value, Option<chrono::DateTime<Utc>>, chrono::DateTime<Utc>, bool)> =
+        let row: Option<MessageRow> =
             sqlx::query_as(
                 "SELECT message_id, from_agent_id, to_agent_id, message_type, payload, expires_at, created_at, acknowledged
                  FROM messages WHERE message_id = $1"

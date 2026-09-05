@@ -15,6 +15,7 @@ impl TaskService {
         Self { pool }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_task(
         &self,
         requester_id: &str,
@@ -49,7 +50,7 @@ impl TaskService {
     }
 
     pub async fn get_task(&self, task_id: &str) -> Result<serde_json::Value, AcError> {
-        let row: Option<(
+        type TaskRow = (
             String,
             String,
             Option<String>,
@@ -62,7 +63,8 @@ impl TaskService {
             String,
             chrono::DateTime<Utc>,
             chrono::DateTime<Utc>,
-        )> = sqlx::query_as(
+        );
+        let row: Option<TaskRow> = sqlx::query_as(
             "SELECT task_id, requester_agent_id, assigned_agent_id, capability, description,
                         input, constraints_deadline, verification_method, required_validators,
                         status, created_at, updated_at

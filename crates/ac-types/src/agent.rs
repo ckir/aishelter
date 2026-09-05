@@ -19,10 +19,11 @@ impl Default for AgentId {
 }
 
 /// Agent lifecycle states.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AgentStatus {
     Unregistered,
+    #[default]
     Registered,
     Active,
     Discoverable,
@@ -31,12 +32,6 @@ pub enum AgentStatus {
     Suspended,
     Revoked,
     Retired,
-}
-
-impl Default for AgentStatus {
-    fn default() -> Self {
-        Self::Registered
-    }
 }
 
 /// Core agent record stored in the database.

@@ -6,6 +6,9 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+type RepRow = (f64, f64, f64, f64, f64, f64, f64, f64, i64);
+type EventRow = (Uuid, String, String, Option<String>, String, f64, chrono::DateTime<Utc>);
+
 /// Statistics about an agent's contribution history.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ContributionStats {
@@ -54,7 +57,7 @@ impl ReputationService {
     }
 
     pub async fn get_reputation(&self, agent_id: &str) -> Result<ReputationSnapshot, AcError> {
-        let row: Option<(f64, f64, f64, f64, f64, f64, f64, f64, i64)> = sqlx::query_as(
+        let row: Option<RepRow> = sqlx::query_as(
             "SELECT reliability, reliability_confidence, task_success, task_success_confidence,
                     verification_accuracy, verification_accuracy_confidence,
                     responsiveness, responsiveness_confidence, vwu_total
@@ -120,15 +123,7 @@ impl ReputationService {
     }
 
     pub async fn compute_and_update_scores(&self, agent_id: &str) -> Result<(), AcError> {
-        let events: Vec<(
-            Uuid,
-            String,
-            String,
-            Option<String>,
-            String,
-            f64,
-            chrono::DateTime<Utc>,
-        )> = sqlx::query_as(
+        let events: Vec<EventRow> = sqlx::query_as(
             "SELECT event_id, agent_id, event_type, task_id, dimension, value, timestamp
              FROM reputation_events WHERE agent_id = $1 ORDER BY timestamp ASC",
         )
