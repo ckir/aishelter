@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 use chrono::Utc;
 use ac_types::error::AcError;
-use ac_types::reputation::{ReputationDimension, ReputationSnapshot};
+use ac_types::reputation::ReputationSnapshot;
 use ac_types::agent::AgentId;
 use crate::scoring::Scorer;
 

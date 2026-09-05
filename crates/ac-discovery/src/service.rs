@@ -52,14 +52,14 @@ impl DiscoveryService {
         "#
         .to_string();
 
-        if let Some(ref cap) = query.capability {
+        if let Some(ref _cap) = query.capability {
             sql.push_str(" AND ac.capability_name = $1");
         }
-        if let Some(ref status) = query.status {
+        if let Some(ref _status) = query.status {
             sql.push_str(" AND a.status = $");
             sql.push_str(&(if query.capability.is_some() { "2" } else { "1" }).to_string());
         }
-        if let Some(min_rel) = query.min_reliability {
+        if let Some(_min_rel) = query.min_reliability {
             sql.push_str(" AND (rs.reliability IS NULL OR rs.reliability >= $");
             // Determine the next positional parameter index.
             let idx = if query.capability.is_some() { 3 } else { 2 };

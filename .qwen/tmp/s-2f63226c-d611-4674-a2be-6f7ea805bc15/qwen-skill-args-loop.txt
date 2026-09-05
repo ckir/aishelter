@@ -1,1 +1,1 @@
-Check the cargo check status: read the output file and status file for shell-bg_dbcb5c11. If completed, read the full output and report any errors. If still running, wait another 120s.
+Check cargo check -p ac-tasks status: run `C:\Users\user\.cargo\bin\cargo.exe check -p ac-tasks 2>&1` and report any errors. If already compiled, report success.

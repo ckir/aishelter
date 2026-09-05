@@ -1,6 +1,5 @@
 use ac_types::error::AcError;
 use ac_types::task::TaskStatus;
-use ac_types::agent::AgentId;
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
