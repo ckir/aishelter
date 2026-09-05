@@ -94,21 +94,18 @@ impl DiscoveryService {
 
         let mut discovery_results: Vec<DiscoveryResult> = results
             .into_iter()
-            .map(|(agent_id, cap_name, cap_ver, profile, reliability, rel_conf)| {
-                DiscoveryResult {
-                    agent_id,
-                    capability: cap_name,
-                    capability_version: cap_ver,
-                    profile_name: profile,
-                    reliability,
-                    reliability_confidence: rel_conf,
-                }
+            .map(|(agent_id, cap_name, cap_ver, profile, reliability, rel_conf)| DiscoveryResult {
+                agent_id,
+                capability: cap_name,
+                capability_version: cap_ver,
+                profile_name: profile,
+                reliability,
+                reliability_confidence: rel_conf,
             })
             .collect();
 
         if let Some(min_rel) = query.min_reliability {
-            discovery_results
-                .retain(|r| r.reliability.is_some_and(|v| v >= min_rel));
+            discovery_results.retain(|r| r.reliability.is_some_and(|v| v >= min_rel));
         }
 
         Ok(discovery_results)
