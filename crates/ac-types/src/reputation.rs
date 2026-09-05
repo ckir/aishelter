@@ -13,6 +13,19 @@ pub enum ReputationDimension {
     Responsiveness,
 }
 
+impl std::str::FromStr for ReputationDimension {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "reliability" => Ok(Self::Reliability),
+            "task_success" => Ok(Self::TaskSuccess),
+            "verification_accuracy" => Ok(Self::VerificationAccuracy),
+            "responsiveness" => Ok(Self::Responsiveness),
+            _ => Err(format!("unknown ReputationDimension: {}", s)),
+        }
+    }
+}
+
 /// A single reputation event.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReputationEvent {

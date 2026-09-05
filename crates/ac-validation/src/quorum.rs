@@ -1,6 +1,17 @@
 use ac_types::task::TaskStatus;
+use serde::{Deserialize, Serialize};
 
 /// Quorum decision from validator votes.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum QuorumDecision {
+    Verified,
+    Rejected,
+    Disputed,
+    Pending,
+}
+
+/// Aggregated quorum result.
 pub struct QuorumResult {
     pub approved: usize,
     pub rejected: usize,
@@ -8,27 +19,37 @@ pub struct QuorumResult {
 }
 
 impl QuorumResult {
-    pub fn is_verified(&self) -> bool {
-        self.approved >= self.required
-    }
-
-    pub fn is_disputed(&self) -> bool {
-        self.approved > 0 && self.rejected > 0 && !self.is_verified()
-    }
-
-    pub fn is_rejected(&self) -> bool {
-        self.rejected >= self.required
+    pub fn decision(&self) -> QuorumDecision {
+        if self.approved >= self.required {
+            QuorumDecision::Verified
+        } else if self.rejected >= self.required {
+            QuorumDecision::Rejected
+        } else if (self.approved + self.rejected) >= self.required
+            && self.approved > 0
+            && self.rejected > 0
+        {
+            QuorumDecision::Disputed
+        } else {
+            QuorumDecision::Pending
+        }
     }
 
     pub fn next_status(&self) -> TaskStatus {
-        if self.is_verified() {
-            TaskStatus::Verified
-        } else if self.is_rejected() {
-            TaskStatus::Rejected
-        } else if self.is_disputed() {
-            TaskStatus::Disputed
-        } else {
-            TaskStatus::Verifying
+        match self.decision() {
+            QuorumDecision::Verified => TaskStatus::Verified,
+            QuorumDecision::Rejected => TaskStatus::Rejected,
+            QuorumDecision::Disputed => TaskStatus::Disputed,
+            QuorumDecision::Pending => TaskStatus::Verifying,
         }
     }
+}
+
+/// Compute quorum decision from vote counts.
+pub fn compute_quorum(required: usize, approvals: usize, rejections: usize) -> QuorumDecision {
+    let result = QuorumResult {
+        approved: approvals,
+        rejected: rejections,
+        required,
+    };
+    result.decision()
 }

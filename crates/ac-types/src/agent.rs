@@ -44,6 +44,9 @@ impl Default for AgentStatus {
 pub struct Agent {
     pub agent_id: AgentId,
     pub public_key: String,
-    pub created_at: DateTime<Utc>,
+    pub profile_name: Option<String>,
+    pub profile_description: Option<String>,
     pub status: AgentStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

@@ -1,0 +1,20 @@
+# Ignore large/generated directories that aren't relevant for code work
+target/
+**/target/
+*.pdb
+mutants.out*/
+
+# Binary artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Data files
+*.parquet
+*.sqlite
+*.db
+
+# OS artifacts
+.DS_Store
+Thumbs.db

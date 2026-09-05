@@ -1,0 +1,1 @@
+Check the cargo check status: read the output file and status file for shell-bg_dbcb5c11. If completed, read the full output and report any errors. If still running, wait another 120s.
