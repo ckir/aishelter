@@ -15,7 +15,7 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -41,7 +41,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://aishelter:aishelter_dev@localhost:5432/aishelter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -68,32 +68,21 @@ jobs:
     env:
       DATABASE_URL: postgresql://aishelter:aishelter_dev@localhost:5432/aishelter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-
-      # Install nextest
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest
-
-      # Run unit tests (non-ignored)
-      - name: Run unit tests
-        run: cargo nextest run --workspace --no-fail-fast
-
-      # Run integration tests (ignored tests require server + DB)
-      # These are skipped by default; uncomment when server is wired
-      # - name: Run integration tests
-      #   run: cargo nextest run --workspace --test integration -- --ignored
+      - uses: taiki-e/install-action@nextest
+      - name: Run tests
+        run: cargo nextest run --workspace --no-tests=pass --no-fail-fast
 
   build:
     name: Build (release)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --bin agent-commons
+      - run: cargo build --release -p ac-server --bin agent-commons
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
@@ -105,10 +94,10 @@ jobs:
     name: Build (Windows release)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --bin agent-commons
+      - run: cargo build --release -p ac-server --bin agent-commons
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
@@ -121,7 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build Docker image
         run: docker build -f docker/Dockerfile -t aishelter:ci .
       - name: Verify image

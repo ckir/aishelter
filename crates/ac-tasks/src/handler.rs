@@ -1,7 +1,7 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     routing::{get, post},
-    Json, Router,
 };
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -66,10 +66,7 @@ async fn create_task(
     }
 }
 
-async fn get_task(
-    State(pool): State<PgPool>,
-    Path(id): Path<String>,
-) -> Json<serde_json::Value> {
+async fn get_task(State(pool): State<PgPool>, Path(id): Path<String>) -> Json<serde_json::Value> {
     let service = TaskService::new(pool);
     match service.get_task(&id).await {
         Ok(task) => Json(serde_json::json!({ "data": task })),

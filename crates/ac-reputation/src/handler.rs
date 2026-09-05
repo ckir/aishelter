@@ -1,3 +1,5 @@
+use crate::service::ReputationService;
+use ac_types::error::AcError;
 use axum::{
     Router,
     extract::{Path, State},
@@ -7,8 +9,6 @@ use axum::{
 };
 use serde::Serialize;
 use sqlx::PgPool;
-use ac_types::error::AcError;
-use crate::service::ReputationService;
 
 /// Application state for reputation routes.
 #[derive(Clone)]
@@ -46,13 +46,10 @@ pub async fn get_reputation(
     State(state): State<ReputationState>,
 ) -> Result<Json<ReputationResponse>, (StatusCode, String)> {
     let service = ReputationService::new(state.pool);
-    let snapshot = service
-        .get_reputation(&agent_id)
-        .await
-        .map_err(|e| match e {
-            AcError::Database(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
-            other => (StatusCode::INTERNAL_SERVER_ERROR, other.to_string()),
-        })?;
+    let snapshot = service.get_reputation(&agent_id).await.map_err(|e| match e {
+        AcError::Database(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+        other => (StatusCode::INTERNAL_SERVER_ERROR, other.to_string()),
+    })?;
 
     Ok(Json(ReputationResponse {
         agent_id: snapshot.agent_id.0,

@@ -8,9 +8,7 @@ pub struct NonceStore {
 
 impl NonceStore {
     pub fn new() -> Self {
-        Self {
-            nonces: HashSet::new(),
-        }
+        Self { nonces: HashSet::new() }
     }
 
     /// Check if a nonce has been used. Returns true if this is a fresh nonce.

@@ -30,21 +30,20 @@ impl ValidationService {
         decision: &str,
         reasoning: Option<&str>,
     ) -> Result<QuorumDecision, AcError> {
-        let required_validators: i32 = sqlx::query_scalar(
-            "SELECT required_validators FROM tasks WHERE task_id = $1"
-        )
-        .bind(task_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| match e {
-            sqlx::Error::RowNotFound => AcError::TaskNotFound(task_id.to_string()),
-            _ => AcError::Database(e.to_string()),
-        })?;
+        let required_validators: i32 =
+            sqlx::query_scalar("SELECT required_validators FROM tasks WHERE task_id = $1")
+                .bind(task_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| match e {
+                    sqlx::Error::RowNotFound => AcError::TaskNotFound(task_id.to_string()),
+                    _ => AcError::Database(e.to_string()),
+                })?;
 
         sqlx::query(
             "INSERT INTO validations (task_id, validator_agent_id, decision, reasoning)
              VALUES ($1, $2, $3, $4)
-             ON CONFLICT (task_id, validator_agent_id) DO NOTHING"
+             ON CONFLICT (task_id, validator_agent_id) DO NOTHING",
         )
         .bind(task_id)
         .bind(validator_agent_id)
@@ -55,7 +54,7 @@ impl ValidationService {
         .map_err(|e| AcError::Database(e.to_string()))?;
 
         let approvals: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM validations WHERE task_id = $1 AND decision = 'approve'"
+            "SELECT COUNT(*) FROM validations WHERE task_id = $1 AND decision = 'approve'",
         )
         .bind(task_id)
         .fetch_one(&self.pool)
@@ -63,7 +62,7 @@ impl ValidationService {
         .map_err(|e| AcError::Database(e.to_string()))?;
 
         let rejections: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM validations WHERE task_id = $1 AND decision = 'reject'"
+            "SELECT COUNT(*) FROM validations WHERE task_id = $1 AND decision = 'reject'",
         )
         .bind(task_id)
         .fetch_one(&self.pool)
@@ -86,14 +85,12 @@ impl ValidationService {
                 TaskStatus::Disputed => "DISPUTED",
                 _ => "VERIFYING",
             };
-            sqlx::query(
-                "UPDATE tasks SET status = $1, updated_at = NOW() WHERE task_id = $2"
-            )
-            .bind(status_str)
-            .bind(task_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| AcError::Database(e.to_string()))?;
+            sqlx::query("UPDATE tasks SET status = $1, updated_at = NOW() WHERE task_id = $2")
+                .bind(status_str)
+                .bind(task_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| AcError::Database(e.to_string()))?;
         }
 
         Ok(decision_result)
@@ -102,7 +99,7 @@ impl ValidationService {
     pub async fn get_validations(&self, task_id: &str) -> Result<Vec<Validation>, AcError> {
         sqlx::query_as::<_, Validation>(
             "SELECT id, task_id, validator_agent_id, decision, reasoning, created_at
-             FROM validations WHERE task_id = $1 ORDER BY created_at"
+             FROM validations WHERE task_id = $1 ORDER BY created_at",
         )
         .bind(task_id)
         .fetch_all(&self.pool)

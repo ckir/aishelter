@@ -10,11 +10,7 @@ pub struct ApiResponse<T> {
 
 impl<T: Serialize> ApiResponse<T> {
     pub fn ok(data: T) -> Self {
-        Self {
-            data: Some(data),
-            error: None,
-            protocol: "acp/1".to_string(),
-        }
+        Self { data: Some(data), error: None, protocol: "acp/1".to_string() }
     }
 
     pub fn err(code: u16, message: String) -> Self {

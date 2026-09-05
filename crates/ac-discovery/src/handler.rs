@@ -1,7 +1,7 @@
 use axum::{
+    Router,
     extract::{Query, State},
     response::Json,
-    Router,
     routing::get,
 };
 use serde::Deserialize;
@@ -44,7 +44,5 @@ pub async fn search(
 }
 
 pub fn routes(pool: PgPool) -> Router {
-    Router::new()
-        .route("/search", get(search))
-        .with_state(pool)
+    Router::new().route("/search", get(search)).with_state(pool)
 }

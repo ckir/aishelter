@@ -1,4 +1,4 @@
-use ed25519_dalek::{SigningKey, VerifyingKey, SignatureError};
+use ed25519_dalek::{SignatureError, SigningKey, VerifyingKey};
 use rand_core::OsRng;
 
 /// A wrapper around an Ed25519 signing key.
@@ -28,8 +28,6 @@ impl AgentKeypair {
 /// Deserialize a public key from a hex string.
 pub fn public_key_from_hex(hex_key: &str) -> Result<VerifyingKey, SignatureError> {
     let bytes = hex::decode(hex_key).map_err(|_| SignatureError::new())?;
-    let bytes_array: [u8; 32] = bytes
-        .try_into()
-        .map_err(|_| SignatureError::new())?;
+    let bytes_array: [u8; 32] = bytes.try_into().map_err(|_| SignatureError::new())?;
     VerifyingKey::from_bytes(&bytes_array)
 }

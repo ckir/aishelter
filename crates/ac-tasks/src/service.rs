@@ -49,17 +49,29 @@ impl TaskService {
     }
 
     pub async fn get_task(&self, task_id: &str) -> Result<serde_json::Value, AcError> {
-        let row: Option<(String, String, Option<String>, String, String, serde_json::Value, Option<chrono::DateTime<Utc>>, String, i32, String, chrono::DateTime<Utc>, chrono::DateTime<Utc>)> =
-            sqlx::query_as(
-                "SELECT task_id, requester_agent_id, assigned_agent_id, capability, description,
+        let row: Option<(
+            String,
+            String,
+            Option<String>,
+            String,
+            String,
+            serde_json::Value,
+            Option<chrono::DateTime<Utc>>,
+            String,
+            i32,
+            String,
+            chrono::DateTime<Utc>,
+            chrono::DateTime<Utc>,
+        )> = sqlx::query_as(
+            "SELECT task_id, requester_agent_id, assigned_agent_id, capability, description,
                         input, constraints_deadline, verification_method, required_validators,
                         status, created_at, updated_at
-                 FROM tasks WHERE task_id = $1"
-            )
-            .bind(task_id)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| AcError::Database(e.to_string()))?;
+                 FROM tasks WHERE task_id = $1",
+        )
+        .bind(task_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AcError::Database(e.to_string()))?;
 
         match row {
             Some(r) => Ok(serde_json::json!({
@@ -74,7 +86,14 @@ impl TaskService {
     }
 
     pub async fn accept_task(&self, task_id: &str, agent_id: &str) -> Result<(), AcError> {
-        self.do_transition(task_id, agent_id, &[TaskStatus::Created, TaskStatus::Offered], TaskStatus::Accepted, true).await
+        self.do_transition(
+            task_id,
+            agent_id,
+            &[TaskStatus::Created, TaskStatus::Offered],
+            TaskStatus::Accepted,
+            true,
+        )
+        .await
     }
 
     pub async fn reject_task(&self, task_id: &str, _agent_id: &str) -> Result<(), AcError> {
@@ -88,16 +107,16 @@ impl TaskService {
         result: serde_json::Value,
         output_hash: &str,
     ) -> Result<(), AcError> {
-        let current_status: String = sqlx::query_scalar(
-            "SELECT status FROM tasks WHERE task_id = $1"
-        )
-        .bind(task_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AcError::Database(e.to_string()))?
-        .ok_or_else(|| AcError::TaskNotFound(task_id.to_string()))?;
+        let current_status: String =
+            sqlx::query_scalar("SELECT status FROM tasks WHERE task_id = $1")
+                .bind(task_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| AcError::Database(e.to_string()))?
+                .ok_or_else(|| AcError::TaskNotFound(task_id.to_string()))?;
 
-        let from: TaskStatus = current_status.parse()
+        let from: TaskStatus = current_status
+            .parse()
             .map_err(|_| AcError::Internal(format!("invalid task status: {}", current_status)))?;
 
         if !is_valid_transition(from, TaskStatus::Submitted) {
@@ -107,17 +126,15 @@ impl TaskService {
             });
         }
 
-        sqlx::query(
-            "UPDATE tasks SET status = 'SUBMITTED', updated_at = NOW() WHERE task_id = $1"
-        )
-        .bind(task_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| AcError::Database(e.to_string()))?;
+        sqlx::query("UPDATE tasks SET status = 'SUBMITTED', updated_at = NOW() WHERE task_id = $1")
+            .bind(task_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AcError::Database(e.to_string()))?;
 
         sqlx::query(
             "INSERT INTO task_results (task_id, agent_id, result_data, output_hash, submitted_at)
-             VALUES ($1, $2, $3, $4, NOW())"
+             VALUES ($1, $2, $3, $4, NOW())",
         )
         .bind(task_id)
         .bind(agent_id)
@@ -130,17 +147,24 @@ impl TaskService {
         Ok(())
     }
 
-    async fn do_transition(&self, task_id: &str, agent_id: &str, from_allowed: &[TaskStatus], to: TaskStatus, set_assigned: bool) -> Result<(), AcError> {
-        let current_status: String = sqlx::query_scalar(
-            "SELECT status FROM tasks WHERE task_id = $1"
-        )
-        .bind(task_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AcError::Database(e.to_string()))?
-        .ok_or_else(|| AcError::TaskNotFound(task_id.to_string()))?;
+    async fn do_transition(
+        &self,
+        task_id: &str,
+        agent_id: &str,
+        from_allowed: &[TaskStatus],
+        to: TaskStatus,
+        set_assigned: bool,
+    ) -> Result<(), AcError> {
+        let current_status: String =
+            sqlx::query_scalar("SELECT status FROM tasks WHERE task_id = $1")
+                .bind(task_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| AcError::Database(e.to_string()))?
+                .ok_or_else(|| AcError::TaskNotFound(task_id.to_string()))?;
 
-        let from: TaskStatus = current_status.parse()
+        let from: TaskStatus = current_status
+            .parse()
             .map_err(|_| AcError::Internal(format!("invalid task status: {}", current_status)))?;
 
         if !from_allowed.contains(&from) || !is_valid_transition(from, to) {
@@ -161,30 +185,33 @@ impl TaskService {
             .await
             .map_err(|e| AcError::Database(e.to_string()))?;
         } else {
-            sqlx::query(
-                "UPDATE tasks SET status = $1, updated_at = NOW() WHERE task_id = $2"
-            )
-            .bind(format!("{:?}", to))
-            .bind(task_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| AcError::Database(e.to_string()))?;
+            sqlx::query("UPDATE tasks SET status = $1, updated_at = NOW() WHERE task_id = $2")
+                .bind(format!("{:?}", to))
+                .bind(task_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| AcError::Database(e.to_string()))?;
         }
 
         Ok(())
     }
 
-    async fn transition_task_simple(&self, task_id: &str, from: TaskStatus, to: TaskStatus) -> Result<(), AcError> {
-        let current_status: String = sqlx::query_scalar(
-            "SELECT status FROM tasks WHERE task_id = $1"
-        )
-        .bind(task_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AcError::Database(e.to_string()))?
-        .ok_or_else(|| AcError::TaskNotFound(task_id.to_string()))?;
+    async fn transition_task_simple(
+        &self,
+        task_id: &str,
+        from: TaskStatus,
+        to: TaskStatus,
+    ) -> Result<(), AcError> {
+        let current_status: String =
+            sqlx::query_scalar("SELECT status FROM tasks WHERE task_id = $1")
+                .bind(task_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| AcError::Database(e.to_string()))?
+                .ok_or_else(|| AcError::TaskNotFound(task_id.to_string()))?;
 
-        let cur: TaskStatus = current_status.parse()
+        let cur: TaskStatus = current_status
+            .parse()
             .map_err(|_| AcError::Internal(format!("invalid task status: {}", current_status)))?;
 
         if cur != from || !is_valid_transition(cur, to) {
@@ -194,14 +221,12 @@ impl TaskService {
             });
         }
 
-        sqlx::query(
-            "UPDATE tasks SET status = $1, updated_at = NOW() WHERE task_id = $2"
-        )
-        .bind(format!("{:?}", to))
-        .bind(task_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| AcError::Database(e.to_string()))?;
+        sqlx::query("UPDATE tasks SET status = $1, updated_at = NOW() WHERE task_id = $2")
+            .bind(format!("{:?}", to))
+            .bind(task_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AcError::Database(e.to_string()))?;
 
         Ok(())
     }

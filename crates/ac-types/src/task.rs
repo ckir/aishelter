@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use crate::agent::AgentId;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Task lifecycle states.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

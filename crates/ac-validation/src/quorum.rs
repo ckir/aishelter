@@ -46,10 +46,6 @@ impl QuorumResult {
 
 /// Compute quorum decision from vote counts.
 pub fn compute_quorum(required: usize, approvals: usize, rejections: usize) -> QuorumDecision {
-    let result = QuorumResult {
-        approved: approvals,
-        rejected: rejections,
-        required,
-    };
+    let result = QuorumResult { approved: approvals, rejected: rejections, required };
     result.decision()
 }

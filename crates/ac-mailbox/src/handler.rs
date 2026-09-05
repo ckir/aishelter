@@ -1,8 +1,7 @@
 use axum::{
-    Router,
-    routing::{get, post},
+    Json, Router,
     extract::{Path, Query, State},
-    Json,
+    routing::{get, post},
 };
 use serde::Deserialize;
 use sqlx::PgPool;

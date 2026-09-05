@@ -1,7 +1,7 @@
+use crate::agent::AgentId;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::agent::AgentId;
 
 /// Dimensions of reputation scoring.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

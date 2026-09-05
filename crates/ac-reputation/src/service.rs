@@ -1,10 +1,10 @@
-use sqlx::PgPool;
-use uuid::Uuid;
-use chrono::Utc;
+use crate::scoring::Scorer;
+use ac_types::agent::AgentId;
 use ac_types::error::AcError;
 use ac_types::reputation::ReputationSnapshot;
-use ac_types::agent::AgentId;
-use crate::scoring::Scorer;
+use chrono::Utc;
+use sqlx::PgPool;
+use uuid::Uuid;
 
 /// Statistics about an agent's contribution history.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -58,7 +58,7 @@ impl ReputationService {
             "SELECT reliability, reliability_confidence, task_success, task_success_confidence,
                     verification_accuracy, verification_accuracy_confidence,
                     responsiveness, responsiveness_confidence, vwu_total
-             FROM reputation_snapshots WHERE agent_id = $1"
+             FROM reputation_snapshots WHERE agent_id = $1",
         )
         .bind(agent_id)
         .fetch_optional(&self.pool)
@@ -66,20 +66,18 @@ impl ReputationService {
         .map_err(|e| AcError::Database(e.to_string()))?;
 
         match row {
-            Some((rel, rel_c, ts, ts_c, va, va_c, resp, resp_c, vwu)) => {
-                Ok(ReputationSnapshot {
-                    agent_id: AgentId(agent_id.to_string()),
-                    reliability: rel,
-                    reliability_confidence: rel_c,
-                    task_success: ts,
-                    task_success_confidence: ts_c,
-                    verification_accuracy: va,
-                    verification_accuracy_confidence: va_c,
-                    responsiveness: resp,
-                    responsiveness_confidence: resp_c,
-                    vwu_total: vwu as u64,
-                })
-            }
+            Some((rel, rel_c, ts, ts_c, va, va_c, resp, resp_c, vwu)) => Ok(ReputationSnapshot {
+                agent_id: AgentId(agent_id.to_string()),
+                reliability: rel,
+                reliability_confidence: rel_c,
+                task_success: ts,
+                task_success_confidence: ts_c,
+                verification_accuracy: va,
+                verification_accuracy_confidence: va_c,
+                responsiveness: resp,
+                responsiveness_confidence: resp_c,
+                vwu_total: vwu as u64,
+            }),
             None => Ok(ReputationSnapshot {
                 agent_id: AgentId(agent_id.to_string()),
                 reliability: 0.0,
@@ -97,7 +95,7 @@ impl ReputationService {
 
     pub async fn get_contributions(&self, agent_id: &str) -> Result<ContributionStats, AcError> {
         let vwu_total: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM work_receipts WHERE agent_id = $1 AND status = 'verified'"
+            "SELECT COUNT(*) FROM work_receipts WHERE agent_id = $1 AND status = 'verified'",
         )
         .bind(agent_id)
         .fetch_one(&self.pool)
@@ -122,9 +120,17 @@ impl ReputationService {
     }
 
     pub async fn compute_and_update_scores(&self, agent_id: &str) -> Result<(), AcError> {
-        let events: Vec<(Uuid, String, String, Option<String>, String, f64, chrono::DateTime<Utc>)> = sqlx::query_as(
+        let events: Vec<(
+            Uuid,
+            String,
+            String,
+            Option<String>,
+            String,
+            f64,
+            chrono::DateTime<Utc>,
+        )> = sqlx::query_as(
             "SELECT event_id, agent_id, event_type, task_id, dimension, value, timestamp
-             FROM reputation_events WHERE agent_id = $1 ORDER BY timestamp ASC"
+             FROM reputation_events WHERE agent_id = $1 ORDER BY timestamp ASC",
         )
         .bind(agent_id)
         .fetch_all(&self.pool)
@@ -136,20 +142,36 @@ impl ReputationService {
         let confidence = scorer.confidence(n_events);
 
         let reliability = Scorer::compute_score_from_events(
-            &events.iter().filter(|(_, _, _, _, dim, _, _)| dim == "reliability").map(|(_, _, _, _, _, val, _)| *val).collect::<Vec<_>>()
+            &events
+                .iter()
+                .filter(|(_, _, _, _, dim, _, _)| dim == "reliability")
+                .map(|(_, _, _, _, _, val, _)| *val)
+                .collect::<Vec<_>>(),
         );
         let task_success = Scorer::compute_score_from_events(
-            &events.iter().filter(|(_, _, _, _, dim, _, _)| dim == "task_success").map(|(_, _, _, _, _, val, _)| *val).collect::<Vec<_>>()
+            &events
+                .iter()
+                .filter(|(_, _, _, _, dim, _, _)| dim == "task_success")
+                .map(|(_, _, _, _, _, val, _)| *val)
+                .collect::<Vec<_>>(),
         );
         let verification_accuracy = Scorer::compute_score_from_events(
-            &events.iter().filter(|(_, _, _, _, dim, _, _)| dim == "verification_accuracy").map(|(_, _, _, _, _, val, _)| *val).collect::<Vec<_>>()
+            &events
+                .iter()
+                .filter(|(_, _, _, _, dim, _, _)| dim == "verification_accuracy")
+                .map(|(_, _, _, _, _, val, _)| *val)
+                .collect::<Vec<_>>(),
         );
         let responsiveness = Scorer::compute_score_from_events(
-            &events.iter().filter(|(_, _, _, _, dim, _, _)| dim == "responsiveness").map(|(_, _, _, _, _, val, _)| *val).collect::<Vec<_>>()
+            &events
+                .iter()
+                .filter(|(_, _, _, _, dim, _, _)| dim == "responsiveness")
+                .map(|(_, _, _, _, _, val, _)| *val)
+                .collect::<Vec<_>>(),
         );
 
         let vwu_total: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM work_receipts WHERE agent_id = $1 AND status = 'verified'"
+            "SELECT COUNT(*) FROM work_receipts WHERE agent_id = $1 AND status = 'verified'",
         )
         .bind(agent_id)
         .fetch_one(&self.pool)
@@ -169,7 +191,7 @@ impl ReputationService {
                 task_success=$4, task_success_confidence=$5,
                 verification_accuracy=$6, verification_accuracy_confidence=$7,
                 responsiveness=$8, responsiveness_confidence=$9,
-                vwu_total=$10, snapshot_at=NOW()"
+                vwu_total=$10, snapshot_at=NOW()",
         )
         .bind(agent_id)
         .bind(reliability)

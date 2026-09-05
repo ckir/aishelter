@@ -1,7 +1,7 @@
-use ed25519_dalek::{Signer, Verifier, VerifyingKey, Signature, SignatureError};
-use sha2::{Sha256, Digest};
-use serde::{Deserialize, Serialize};
 use crate::keypair::AgentKeypair;
+use ed25519_dalek::{Signature, SignatureError, Signer, Verifier, VerifyingKey};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// A signed request from an agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,12 +57,7 @@ impl SignedRequest {
     pub fn verify(&self, public_key: &VerifyingKey) -> Result<(), SignatureError> {
         let message = format!(
             "{}\n{}\n{}\n{}\n{}\n{}",
-            self.agent_id,
-            self.timestamp,
-            self.nonce,
-            self.method,
-            self.path,
-            self.body_sha256
+            self.agent_id, self.timestamp, self.nonce, self.method, self.path, self.body_sha256
         );
 
         let sig_bytes = hex::decode(&self.signature).map_err(|_| SignatureError::new())?;

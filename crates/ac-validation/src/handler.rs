@@ -1,13 +1,13 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     routing::{get, post},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-use crate::service::ValidationService;
 use crate::quorum::QuorumDecision;
+use crate::service::ValidationService;
 
 pub fn routes(pool: PgPool) -> Router {
     Router::new()

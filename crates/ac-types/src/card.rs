@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::agent::AgentId;
+use serde::{Deserialize, Serialize};
 
 /// A declared capability with a version.
 #[derive(Debug, Clone, Serialize, Deserialize)]

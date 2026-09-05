@@ -4,8 +4,7 @@ use ac_server::config::Settings;
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    let settings = Settings::new()
-        .unwrap_or_else(|_| Settings::default());
+    let settings = Settings::new().unwrap_or_else(|_| Settings::default());
 
     tracing::info!("Agent Commons starting on {}:{}", settings.host, settings.port);
 

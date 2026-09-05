@@ -30,11 +30,23 @@ async fn e2e_full_task_lifecycle() {
     let b = base_url();
 
     // Agent A registers
-    let a = reg(&c, &b, "e2e_agent_a", "pk_a_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").await;
+    let a = reg(
+        &c,
+        &b,
+        "e2e_agent_a",
+        "pk_a_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
+    .await;
     let a_id = a["agent_id"].as_str().unwrap();
 
     // Agent B registers
-    let b2 = reg(&c, &b, "e2e_agent_b", "pk_b_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").await;
+    let b2 = reg(
+        &c,
+        &b,
+        "e2e_agent_b",
+        "pk_b_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
+    .await;
     let b_id = b2["agent_id"].as_str().unwrap();
 
     // Agent B publishes card
@@ -45,7 +57,17 @@ async fn e2e_full_task_lifecycle() {
     assert!(!results.is_empty(), "discovery should return results");
 
     // Agent A creates task
-    let tid = task(&c, &b, a_id, "fact_verification", "Verify claims", json!({"claims": ["c1"]}), "peer", 2).await;
+    let tid = task(
+        &c,
+        &b,
+        a_id,
+        "fact_verification",
+        "Verify claims",
+        json!({"claims": ["c1"]}),
+        "peer",
+        2,
+    )
+    .await;
 
     // Agent B accepts
     accept(&c, &b, &tid, b_id).await;
@@ -54,8 +76,20 @@ async fn e2e_full_task_lifecycle() {
     submit(&c, &b, &tid, b_id, json!({"result": "verified"}), "sha256:abc").await;
 
     // Two validators verify
-    let v1 = reg(&c, &b, "e2e_validator_1", "pk_v1_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd").await;
-    let v2 = reg(&c, &b, "e2e_validator_2", "pk_v2_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd").await;
+    let v1 = reg(
+        &c,
+        &b,
+        "e2e_validator_1",
+        "pk_v1_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd",
+    )
+    .await;
+    let v2 = reg(
+        &c,
+        &b,
+        "e2e_validator_2",
+        "pk_v2_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd",
+    )
+    .await;
     let v1_id = v1["agent_id"].as_str().unwrap();
     let v2_id = v2["agent_id"].as_str().unwrap();
 
@@ -75,8 +109,20 @@ async fn e2e_async_mailbox() {
     let c = test_client();
     let b = base_url();
 
-    let sender = reg(&c, &b, "mb_sender", "pk_ms_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").await;
-    let receiver = reg(&c, &b, "mb_receiver", "pk_mr_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").await;
+    let sender = reg(
+        &c,
+        &b,
+        "mb_sender",
+        "pk_ms_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
+    .await;
+    let receiver = reg(
+        &c,
+        &b,
+        "mb_receiver",
+        "pk_mr_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
+    .await;
     let s_id = sender["agent_id"].as_str().unwrap();
     let r_id = receiver["agent_id"].as_str().unwrap();
 
@@ -126,8 +172,12 @@ async fn adversarial_duplicate_public_key() {
     let b = base_url();
     let key = "pk_dup_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     let _ = reg(&c, &b, "adv_first", key).await;
-    let resp = c.post(format!("{}/v1/agents/register", b))
-        .json(&json!({"agent_id": "adv_second", "public_key": key})).send().await.unwrap();
+    let resp = c
+        .post(format!("{}/v1/agents/register", b))
+        .json(&json!({"agent_id": "adv_second", "public_key": key}))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::CONFLICT, "duplicate public key should be 409");
 }
 
@@ -136,10 +186,20 @@ async fn adversarial_duplicate_public_key() {
 async fn adversarial_submit_nonexistent_task() {
     let c = test_client();
     let b = base_url();
-    let a = reg(&c, &b, "adv_nt", "pk_ant_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").await;
+    let a = reg(
+        &c,
+        &b,
+        "adv_nt",
+        "pk_ant_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
+    .await;
     let aid = a["agent_id"].as_str().unwrap();
-    let resp = c.post(format!("{}/v1/tasks/nonexistent/result", b))
-        .json(&json!({"agent_id": aid, "result": json!({}), "output_hash": "sha256:x"})).send().await.unwrap();
+    let resp = c
+        .post(format!("{}/v1/tasks/nonexistent/result", b))
+        .json(&json!({"agent_id": aid, "result": json!({}), "output_hash": "sha256:x"}))
+        .send()
+        .await
+        .unwrap();
     assert!(resp.status().is_client_error(), "should return 4xx");
     assert_ne!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
 }
@@ -149,7 +209,13 @@ async fn adversarial_submit_nonexistent_task() {
 async fn adversarial_message_nonexistent_agent() {
     let c = test_client();
     let b = base_url();
-    let a = reg(&c, &b, "adv_msg_from", "pk_amf_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").await;
+    let a = reg(
+        &c,
+        &b,
+        "adv_msg_from",
+        "pk_amf_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
+    .await;
     let aid = a["agent_id"].as_str().unwrap();
     let resp = c.post(format!("{}/v1/messages", b))
         .json(&json!({"from_agent_id": aid, "to_agent_id": "agent_nonexistent", "type": "task.offer", "payload": json!({})}))
@@ -162,16 +228,30 @@ async fn adversarial_message_nonexistent_agent() {
 async fn adversarial_duplicate_validation() {
     let c = test_client();
     let b = base_url();
-    let a = reg(&c, &b, "adv_dup_val", "pk_adv_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").await;
+    let a = reg(
+        &c,
+        &b,
+        "adv_dup_val",
+        "pk_adv_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
+    .await;
     let aid = a["agent_id"].as_str().unwrap();
     let tid = task(&c, &b, aid, "research", "test", json!({}), "peer", 2).await;
 
-    let r1 = c.post(format!("{}/v1/validations/{}/validate", b, tid))
-        .json(&json!({"validator_id": aid, "decision": "approve", "reasoning": "first"})).send().await.unwrap();
+    let r1 = c
+        .post(format!("{}/v1/validations/{}/validate", b, tid))
+        .json(&json!({"validator_id": aid, "decision": "approve", "reasoning": "first"}))
+        .send()
+        .await
+        .unwrap();
     assert!(r1.status().is_success());
 
-    let r2 = c.post(format!("{}/v1/validations/{}/validate", b, tid))
-        .json(&json!({"validator_id": aid, "decision": "approve", "reasoning": "second"})).send().await.unwrap();
+    let r2 = c
+        .post(format!("{}/v1/validations/{}/validate", b, tid))
+        .json(&json!({"validator_id": aid, "decision": "approve", "reasoning": "second"}))
+        .send()
+        .await
+        .unwrap();
     // Idempotent (200) or conflict (409) — not 500
     assert!(r2.status().is_success() || r2.status() == StatusCode::CONFLICT);
 }
@@ -190,31 +270,59 @@ async fn adversarial_get_nonexistent_agent() {
 async fn adversarial_acknowledge_nonexistent_message() {
     let c = test_client();
     let b = base_url();
-    let resp = c.post(format!("{}/v1/messages/00000000-0000-0000-0000-000000000000/ack", b)).send().await.unwrap();
+    let resp = c
+        .post(format!("{}/v1/messages/00000000-0000-0000-0000-000000000000/ack", b))
+        .send()
+        .await
+        .unwrap();
     assert!(resp.status().is_client_error(), "ack nonexistent message should be 4xx");
 }
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
 async fn reg(c: &Client, b: &str, id: &str, pk: &str) -> serde_json::Value {
-    let r = c.post(format!("{}/v1/agents/register", b)).json(&json!({"agent_id": id, "public_key": pk})).send().await.unwrap();
+    let r = c
+        .post(format!("{}/v1/agents/register", b))
+        .json(&json!({"agent_id": id, "public_key": pk}))
+        .send()
+        .await
+        .unwrap();
     assert!(r.status().is_success(), "register failed: {}", r.status());
     r.json().await.unwrap()
 }
 
 async fn card(c: &Client, b: &str, id: &str, name: &str, desc: &str) {
-    let r = c.put(format!("{}/v1/agents/{}/card", b, id)).json(&json!({"name": name, "description": desc})).send().await.unwrap();
+    let r = c
+        .put(format!("{}/v1/agents/{}/card", b, id))
+        .json(&json!({"name": name, "description": desc}))
+        .send()
+        .await
+        .unwrap();
     assert!(r.status().is_success(), "card update failed: {}", r.status());
 }
 
 async fn discover(c: &Client, b: &str, cap: &str) -> Vec<serde_json::Value> {
-    let r = c.get(format!("{}/v1/discovery/search", b)).query(&[("capability", cap)]).send().await.unwrap();
+    let r = c
+        .get(format!("{}/v1/discovery/search", b))
+        .query(&[("capability", cap)])
+        .send()
+        .await
+        .unwrap();
     assert!(r.status().is_success(), "discovery failed: {}", r.status());
     let body: serde_json::Value = r.json().await.unwrap();
     body["results"].as_array().cloned().unwrap_or_default()
 }
 
-async fn task(c: &Client, b: &str, req: &str, cap: &str, desc: &str, input: serde_json::Value, vm: &str, rv: i32) -> String {
+async fn task(
+    c: &Client,
+    b: &str,
+    req: &str,
+    cap: &str,
+    desc: &str,
+    input: serde_json::Value,
+    vm: &str,
+    rv: i32,
+) -> String {
     let r = c.post(format!("{}/v1/tasks", b)).json(&json!({"requester": req, "capability": cap, "description": desc, "input": input, "verification_method": vm, "required_validators": rv})).send().await.unwrap();
     assert!(r.status().is_success(), "create task failed: {}", r.status());
     let body: serde_json::Value = r.json().await.unwrap();
@@ -222,17 +330,32 @@ async fn task(c: &Client, b: &str, req: &str, cap: &str, desc: &str, input: serd
 }
 
 async fn accept(c: &Client, b: &str, tid: &str, aid: &str) {
-    let r = c.post(format!("{}/v1/tasks/{}/accept", b, tid)).json(&json!({"agent_id": aid})).send().await.unwrap();
+    let r = c
+        .post(format!("{}/v1/tasks/{}/accept", b, tid))
+        .json(&json!({"agent_id": aid}))
+        .send()
+        .await
+        .unwrap();
     assert!(r.status().is_success(), "accept failed: {}", r.status());
 }
 
 async fn submit(c: &Client, b: &str, tid: &str, aid: &str, result: serde_json::Value, hash: &str) {
-    let r = c.post(format!("{}/v1/tasks/{}/result", b, tid)).json(&json!({"agent_id": aid, "result": result, "output_hash": hash})).send().await.unwrap();
+    let r = c
+        .post(format!("{}/v1/tasks/{}/result", b, tid))
+        .json(&json!({"agent_id": aid, "result": result, "output_hash": hash}))
+        .send()
+        .await
+        .unwrap();
     assert!(r.status().is_success(), "submit failed: {}", r.status());
 }
 
 async fn validate(c: &Client, b: &str, tid: &str, vid: &str, decision: &str, reason: &str) {
-    let r = c.post(format!("{}/v1/validations/{}/validate", b, tid)).json(&json!({"validator_id": vid, "decision": decision, "reasoning": reason})).send().await.unwrap();
+    let r = c
+        .post(format!("{}/v1/validations/{}/validate", b, tid))
+        .json(&json!({"validator_id": vid, "decision": decision, "reasoning": reason}))
+        .send()
+        .await
+        .unwrap();
     assert!(r.status().is_success(), "validate failed: {}", r.status());
 }
 
@@ -242,8 +365,20 @@ async fn get_task(c: &Client, b: &str, tid: &str) -> serde_json::Value {
     r.json::<serde_json::Value>().await.unwrap()["data"].clone()
 }
 
-async fn send_msg(c: &Client, b: &str, from: &str, to: &str, t: &str, p: serde_json::Value) -> serde_json::Value {
-    let r = c.post(format!("{}/v1/messages", b)).json(&json!({"from_agent_id": from, "to_agent_id": to, "type": t, "payload": p})).send().await.unwrap();
+async fn send_msg(
+    c: &Client,
+    b: &str,
+    from: &str,
+    to: &str,
+    t: &str,
+    p: serde_json::Value,
+) -> serde_json::Value {
+    let r = c
+        .post(format!("{}/v1/messages", b))
+        .json(&json!({"from_agent_id": from, "to_agent_id": to, "type": t, "payload": p}))
+        .send()
+        .await
+        .unwrap();
     assert!(r.status().is_success(), "send message failed: {}", r.status());
     r.json().await.unwrap()
 }
@@ -255,7 +390,12 @@ async fn get_msgs(c: &Client, b: &str, aid: &str) -> Vec<serde_json::Value> {
 }
 
 async fn get_unacked(c: &Client, b: &str, aid: &str) -> Vec<serde_json::Value> {
-    let r = c.get(format!("{}/v1/messages", b)).query(&[("agent_id", aid), ("unacknowledged", "true")]).send().await.unwrap();
+    let r = c
+        .get(format!("{}/v1/messages", b))
+        .query(&[("agent_id", aid), ("unacknowledged", "true")])
+        .send()
+        .await
+        .unwrap();
     let body: serde_json::Value = r.json().await.unwrap();
     body["data"]["messages"].as_array().cloned().unwrap_or_default()
 }

@@ -1,6 +1,6 @@
-use sqlx::PgPool;
 use ac_types::error::AcError;
 use chrono::Utc;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 pub struct MailboxService {
@@ -21,13 +21,12 @@ impl MailboxService {
         expires_at: Option<chrono::DateTime<Utc>>,
     ) -> Result<Uuid, AcError> {
         for agent_id in [from_agent_id, to_agent_id] {
-            let exists: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM agents WHERE agent_id = $1)"
-            )
-            .bind(agent_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| AcError::Database(e.to_string()))?;
+            let exists: bool =
+                sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM agents WHERE agent_id = $1)")
+                    .bind(agent_id)
+                    .fetch_one(&self.pool)
+                    .await
+                    .map_err(|e| AcError::Database(e.to_string()))?;
             if !exists {
                 return Err(AcError::AgentNotFound(agent_id.to_string()));
             }
@@ -69,25 +68,36 @@ impl MailboxService {
              AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY created_at DESC"
         };
 
-        let rows: Vec<(Uuid, String, String, String, serde_json::Value, Option<chrono::DateTime<Utc>>, chrono::DateTime<Utc>, bool)> =
-            sqlx::query_as(query)
-                .bind(agent_id)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(|e| AcError::Database(e.to_string()))?;
+        let rows: Vec<(
+            Uuid,
+            String,
+            String,
+            String,
+            serde_json::Value,
+            Option<chrono::DateTime<Utc>>,
+            chrono::DateTime<Utc>,
+            bool,
+        )> = sqlx::query_as(query)
+            .bind(agent_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| AcError::Database(e.to_string()))?;
 
-        Ok(rows.into_iter().map(|r| {
-            serde_json::json!({
-                "message_id": r.0,
-                "from": r.1,
-                "to": r.2,
-                "type": r.3,
-                "payload": r.4,
-                "expires_at": r.5,
-                "created_at": r.6,
-                "acknowledged": r.7,
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                serde_json::json!({
+                    "message_id": r.0,
+                    "from": r.1,
+                    "to": r.2,
+                    "type": r.3,
+                    "payload": r.4,
+                    "expires_at": r.5,
+                    "created_at": r.6,
+                    "acknowledged": r.7,
+                })
             })
-        }).collect())
+            .collect())
     }
 
     pub async fn get_message(&self, message_id: &str) -> Result<serde_json::Value, AcError> {

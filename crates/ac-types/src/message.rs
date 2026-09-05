@@ -1,7 +1,7 @@
+use crate::agent::AgentId;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::agent::AgentId;
 
 /// Message types for the agent protocol.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

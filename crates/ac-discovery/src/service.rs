@@ -1,5 +1,5 @@
-use sqlx::PgPool;
 use ac_types::error::AcError;
+use sqlx::PgPool;
 
 /// A single result from a discovery search query.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -33,7 +33,10 @@ impl DiscoveryService {
     }
 
     /// Search for agents by capability and optional filters.
-    pub async fn search_agents(&self, query: &SearchQuery) -> Result<Vec<DiscoveryResult>, AcError> {
+    pub async fn search_agents(
+        &self,
+        query: &SearchQuery,
+    ) -> Result<Vec<DiscoveryResult>, AcError> {
         let limit = if query.limit > 0 { query.limit } else { 20 };
 
         // Build the base query with optional filters.
@@ -128,18 +131,14 @@ impl DiscoveryService {
 
         let mut discovery_results: Vec<DiscoveryResult> = results
             .into_iter()
-            .map(
-                |(agent_id, cap_name, cap_ver, profile, reliability, rel_conf)| {
-                    DiscoveryResult {
-                        agent_id,
-                        capability: cap_name,
-                        capability_version: cap_ver,
-                        profile_name: profile,
-                        reliability,
-                        reliability_confidence: rel_conf,
-                    }
-                },
-            )
+            .map(|(agent_id, cap_name, cap_ver, profile, reliability, rel_conf)| DiscoveryResult {
+                agent_id,
+                capability: cap_name,
+                capability_version: cap_ver,
+                profile_name: profile,
+                reliability,
+                reliability_confidence: rel_conf,
+            })
             .collect();
 
         // Apply min_reliability filter in Rust (LEFT JOIN means some agents have NULL).
