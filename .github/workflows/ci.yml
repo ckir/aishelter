@@ -115,3 +115,23 @@ jobs:
         run: docker build -f docker/Dockerfile -t aishelter:ci .
       - name: Verify image
         run: docker image inspect aishelter:ci --format '{{.Size}}'
+
+  docs:
+    name: Publish docs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [fmt, clippy]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build docs
+        run: cargo doc --workspace --no-deps --document-private-items
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: target/doc
+          force_orphan: true
