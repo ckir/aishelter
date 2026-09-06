@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "ac-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-crypto",
  "ac-types",
@@ -16,7 +16,7 @@ dependencies = [
 
 [[package]]
 name = "ac-crypto"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-types",
  "chrono",
@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "ac-db"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-types",
  "anyhow",
@@ -46,7 +46,7 @@ dependencies = [
 
 [[package]]
 name = "ac-discovery"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-api",
  "ac-db",
@@ -62,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "ac-mailbox"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "ac-registry"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -101,7 +101,7 @@ dependencies = [
 
 [[package]]
 name = "ac-reputation"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-api",
  "ac-db",
@@ -119,7 +119,7 @@ dependencies = [
 
 [[package]]
 name = "ac-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -157,7 +157,7 @@ dependencies = [
 
 [[package]]
 name = "ac-tasks"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -176,7 +176,7 @@ dependencies = [
 
 [[package]]
 name = "ac-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "serde",
@@ -189,7 +189,7 @@ dependencies = [
 
 [[package]]
 name = "ac-validation"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -230,7 +230,7 @@ dependencies = [
 
 [[package]]
 name = "aishelter"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "reqwest",
  "serde",
