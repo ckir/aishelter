@@ -1,3 +1,9 @@
+//! Axum route handlers for peer validation endpoints.
+//!
+//! Exposes two HTTP endpoints for the validation workflow (§20-22):
+//! - `POST /{task_id}/validate` — submit a validation decision
+//! - `GET /{task_id}` — retrieve all validation decisions for a task
+
 use axum::{
     Json, Router,
     extract::{Path, State},
@@ -9,6 +15,7 @@ use sqlx::PgPool;
 use crate::quorum::QuorumDecision;
 use crate::service::ValidationService;
 
+/// Build the validation router with the given database pool.
 pub fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/{task_id}/validate", post(validate_task))
@@ -16,19 +23,28 @@ pub fn routes(pool: PgPool) -> Router {
         .with_state(pool)
 }
 
+/// Request body for submitting a validation decision.
 #[derive(Deserialize, utoipa::ToSchema)]
 pub struct ValidateRequest {
+    /// The validator agent's ID.
     pub validator_id: String,
+    /// The decision: `"approve"` or `"reject"`.
     pub decision: String,
+    /// Optional reasoning for the decision.
     pub reasoning: Option<String>,
 }
 
+/// Response body containing the quorum decision.
 #[derive(Serialize, utoipa::ToSchema)]
 pub struct ValidateResponse {
+    /// The quorum result: `"verified"`, `"rejected"`, `"disputed"`, or `"pending"`.
     pub decision: String,
 }
 
 /// Submit a validation decision for a task.
+///
+/// Records the validator's vote and computes the quorum decision.
+/// If the quorum threshold is met, the task status is updated accordingly.
 #[utoipa::path(
     post,
     path = "/v1/validations/{task_id}/validate",
@@ -49,11 +65,14 @@ pub async fn validate_task(
     Path(task_id): Path<String>,
     Json(req): Json<ValidateRequest>,
 ) -> Json<ValidateResponse> {
+    // Create the validation service.
     let service = ValidationService::new(pool);
+    // Submit the vote and get the quorum decision.
     let decision = service
         .validate_task(&task_id, &req.validator_id, &req.decision, req.reasoning.as_deref())
         .await;
 
+    // Map the enum variant to a human-readable string.
     let decision_str = match decision {
         Ok(QuorumDecision::Verified) => "verified",
         Ok(QuorumDecision::Rejected) => "rejected",
@@ -66,6 +85,9 @@ pub async fn validate_task(
 }
 
 /// Get all validation decisions for a task.
+///
+/// Returns the full history of votes cast by validators, including
+/// their reasoning.  Useful for auditing disputes (§22).
 #[utoipa::path(
     get,
     path = "/v1/validations/{task_id}",
