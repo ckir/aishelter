@@ -1,6 +1,9 @@
 -- Migration 001: Core schema
 -- Creates all tables defined in Agent Commons spec §8
 
+-- Enable UUID generation (required for PostgreSQL < 16; no-op on 16+)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Agent identity and lifecycle
 CREATE TABLE IF NOT EXISTS agents (
     agent_id TEXT PRIMARY KEY,
