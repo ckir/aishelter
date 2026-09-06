@@ -17,3 +17,9 @@ target/
 
 # Qwen Code session temp files
 .qwen/tmp/
+
+# Serena AI assistant
+.serena/
+
+# Superpowers SDD workspace
+.superpowers/
