@@ -1,0 +1,26 @@
+# Typos configuration for Agent Commons.
+# https://github.com/crate-ci/typos
+
+[files]
+extend-exclude = [
+    "target/",
+    ".qwen/",
+    "Cargo.lock",
+]
+
+[default]
+extend-ignore-re = [
+    # Ed25519 hex key patterns (long hex strings)
+    "[0-9a-fA-F]{32,}",
+    # SHA-256 hashes
+    "sha256:[0-9a-f]+",
+]
+
+[default.extend-words]
+# Technical terms that look like typos
+ser = "ser"        # serde serialization
+der = "der"        # ASN.1 DER encoding
+vwu = "vwu"        # Verified Work Unit
+acp = "acp"        # Agent Commons Protocol
+aishelter = "aishelter"  # project name
+ckir = "ckir"      # GitHub username

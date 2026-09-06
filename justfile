@@ -68,3 +68,7 @@ clean:
 # Usage: just release <patch|minor|major>
 release VERSION_BUMP:
     cargo release {{VERSION_BUMP}} --workspace --execute
+
+# Check for typos across all files
+typos:
+    typos
