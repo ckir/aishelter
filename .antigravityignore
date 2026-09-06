@@ -13,4 +13,10 @@ Thumbs.db
 # Other agent directories
 .qwen/
 .serena/
+.superpowers/
+.claude/
 .idea/
+.vscode/
+
+# Node.js
+node_modules/
