@@ -1,0 +1,16 @@
+# Antigravity ignore file
+# Ignore build artifacts and large generated directories
+target/
+
+# OS artifacts
+*.pdb
+.DS_Store
+Thumbs.db
+
+# Mutation testing output
+**/mutants.out*/
+
+# Other agent directories
+.qwen/
+.serena/
+.idea/
