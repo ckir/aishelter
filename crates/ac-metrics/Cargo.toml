@@ -1,0 +1,14 @@
+[package]
+name = "ac-metrics"
+version = "0.1.1"
+edition = "2024"
+license.workspace = true
+
+[dependencies]
+prometheus-client = { workspace = true }
+sqlx = { workspace = true }
+tower = { workspace = true }
+axum = { workspace = true }
+http-body = "1"
+pin-project-lite = "0.2"
+tokio = { workspace = true }

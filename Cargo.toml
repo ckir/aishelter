@@ -17,6 +17,7 @@ members = [
     "crates/ac-validation",
     "crates/ac-reputation",
     "crates/ac-server",
+    "crates/ac-metrics",
 ]
 resolver = "2"
 
@@ -44,12 +45,36 @@ reqwest = { version = "0.12", features = ["json"] }
 utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }
 utoipa-axum = "0.2"
 utoipa-scalar = { version = "0.3", features = ["axum"] }
+prometheus-client = "0.22"
+testcontainers = "0.23"
+testcontainers-modules = { version = "0.11", features = ["postgres"] }
+openapiv3 = "2"
+jsonschema = "0.28"
+http = "1"
+http-body = "1"
+pin-project-lite = "0.2"
 
 [dev-dependencies]
 reqwest = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+testcontainers = { workspace = true }
+testcontainers-modules = { workspace = true }
+tower = { workspace = true }
+axum = { workspace = true }
+openapiv3 = { workspace = true }
+jsonschema = { workspace = true }
+sqlx = { workspace = true }
+ac-server = { path = "crates/ac-server" }
+ac-metrics = { path = "crates/ac-metrics" }
+ed25519-dalek = { workspace = true }
+rand_core = "0.6"
+hex = "0.4"
+
+[[test]]
+name = "integration"
+path = "tests/integration/mod.rs"
 
 [workspace.metadata.release]
 shared-version = true
