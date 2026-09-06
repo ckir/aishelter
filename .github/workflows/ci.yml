@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -65,3 +66,111 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - name: Run tests
         run: cargo nextest run --workspace --no-tests=pass --no-fail-fast
+
+  build:
+    name: Build (release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p ac-server --bin agent-commons
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-commons-linux-amd64
+          path: target/release/agent-commons
+          retention-days: 7
+
+  build-windows:
+    name: Build (Windows release)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p ac-server --bin agent-commons
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-commons-windows-amd64
+          path: target/release/agent-commons.exe
+          retention-days: 7
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t aishelter:ci .
+      - name: Verify image
+        run: docker image inspect aishelter:ci --format '{{.Size}}'
+
+  docs:
+    name: Publish docs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [fmt, clippy]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build docs
+        run: cargo doc --workspace --no-deps --document-private-items
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: target/doc
+          force_orphan: true
+
+  release:
+    name: Release binaries
+    runs-on: ${{ matrix.runner }}
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [fmt, clippy, test]
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin-names: "agent-commons,ac-server-lambda,ac-server-cloudrun,ac-server-workers"
+            artifact-prefix: linux-amd64
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin-names: "agent-commons"
+            artifact-prefix: windows-amd64
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            bin-names: "agent-commons,ac-server-cloudrun"
+            artifact-prefix: darwin-arm64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build binaries
+        run: |
+          IFS=',' read -ra BINS <<< "${{ matrix.bin-names }}"
+          for bin in "${BINS[@]}"; do
+            if [[ "$bin" == "ac-server-lambda" || "$bin" == "ac-server-cloudrun" || "$bin" == "ac-server-workers" ]]; then
+              feature="${bin#ac-server-}"
+              cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature" --bin "$bin"
+            else
+              cargo build --release --target ${{ matrix.target }} -p ac-server --bin "$bin"
+            fi
+          done
+        shell: bash
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.runner == 'windows-latest' && 'target/${{ matrix.target }}/release/*.exe' || 'target/${{ matrix.target }}/release/agent-commons target/${{ matrix.target }}/release/ac-server-*' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
