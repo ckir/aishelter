@@ -113,6 +113,7 @@ impl Metrics {
     /// - `db_query_duration_seconds` — histogram for SQL query latency
     /// - `active_tasks` — gauge family labeled by task status
     /// - `messages_pending` — gauge for pending mailbox messages
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let mut registry = Registry::default();
 
@@ -151,11 +152,7 @@ impl Metrics {
         registry.register("active_tasks", "Tasks by status", active_tasks.clone());
 
         let messages_pending = Gauge::default();
-        registry.register(
-            "messages_pending",
-            "Unacknowledged messages",
-            messages_pending.clone(),
-        );
+        registry.register("messages_pending", "Unacknowledged messages", messages_pending.clone());
 
         Self {
             registry: Arc::new(registry),
