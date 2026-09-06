@@ -1,0 +1,35 @@
+[package]
+name = "ac-serverless"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[[bin]]
+name = "ac-server-lambda"
+path = "src/bin/ac-server-lambda.rs"
+required-features = ["lambda"]
+
+[[bin]]
+name = "ac-server-cloudrun"
+path = "src/bin/ac-server-cloudrun.rs"
+required-features = ["cloudrun"]
+
+[[bin]]
+name = "ac-server-workers"
+path = "src/bin/ac-server-workers.rs"
+required-features = ["workers"]
+
+[features]
+lambda = ["ac-runtime/lambda"]
+cloudrun = ["ac-runtime/cloudrun"]
+workers = ["ac-runtime/workers"]
+
+[dependencies]
+ac-runtime = { path = "../ac-runtime" }
+ac-server = { path = "../ac-server" }
+ac-metrics = { path = "../ac-metrics" }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
