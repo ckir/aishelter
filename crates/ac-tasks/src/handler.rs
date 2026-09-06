@@ -18,7 +18,7 @@ pub fn routes(pool: PgPool) -> Router {
         .with_state(pool)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct CreateTaskRequest {
     pub requester: String,
     pub capability: String,
@@ -29,19 +29,29 @@ pub struct CreateTaskRequest {
     pub required_validators: Option<i32>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct TaskActionRequest {
     pub agent_id: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct SubmitResultRequest {
     pub agent_id: String,
     pub result: serde_json::Value,
     pub output_hash: String,
 }
 
-async fn create_task(
+/// Create a new task.
+#[utoipa::path(
+    post,
+    path = "/v1/tasks",
+    tag = "tasks",
+    request_body = CreateTaskRequest,
+    responses(
+        (status = 200, description = "Task created", body = serde_json::Value),
+    ),
+)]
+pub async fn create_task(
     State(pool): State<PgPool>,
     Json(req): Json<CreateTaskRequest>,
 ) -> Json<serde_json::Value> {
@@ -66,7 +76,20 @@ async fn create_task(
     }
 }
 
-async fn get_task(State(pool): State<PgPool>, Path(id): Path<String>) -> Json<serde_json::Value> {
+/// Get task details by ID.
+#[utoipa::path(
+    get,
+    path = "/v1/tasks/{id}",
+    tag = "tasks",
+    params(
+        ("id" = String, Path, description = "Task ID"),
+    ),
+    responses(
+        (status = 200, description = "Task details", body = serde_json::Value),
+        (status = 404, description = "Task not found"),
+    ),
+)]
+pub async fn get_task(State(pool): State<PgPool>, Path(id): Path<String>) -> Json<serde_json::Value> {
     let service = TaskService::new(pool);
     match service.get_task(&id).await {
         Ok(task) => Json(serde_json::json!({ "data": task })),
@@ -74,7 +97,22 @@ async fn get_task(State(pool): State<PgPool>, Path(id): Path<String>) -> Json<se
     }
 }
 
-async fn accept_task(
+/// Accept a task offer.
+#[utoipa::path(
+    post,
+    path = "/v1/tasks/{id}/accept",
+    tag = "tasks",
+    request_body = TaskActionRequest,
+    params(
+        ("id" = String, Path, description = "Task ID"),
+    ),
+    responses(
+        (status = 200, description = "Task accepted", body = serde_json::Value),
+        (status = 400, description = "Invalid state transition"),
+        (status = 404, description = "Task not found"),
+    ),
+)]
+pub async fn accept_task(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
     Json(req): Json<TaskActionRequest>,
@@ -86,7 +124,22 @@ async fn accept_task(
     }
 }
 
-async fn reject_task(
+/// Reject a task offer.
+#[utoipa::path(
+    post,
+    path = "/v1/tasks/{id}/reject",
+    tag = "tasks",
+    request_body = TaskActionRequest,
+    params(
+        ("id" = String, Path, description = "Task ID"),
+    ),
+    responses(
+        (status = 200, description = "Task rejected", body = serde_json::Value),
+        (status = 400, description = "Invalid state transition"),
+        (status = 404, description = "Task not found"),
+    ),
+)]
+pub async fn reject_task(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
     Json(req): Json<TaskActionRequest>,
@@ -98,7 +151,22 @@ async fn reject_task(
     }
 }
 
-async fn submit_result(
+/// Submit task result.
+#[utoipa::path(
+    post,
+    path = "/v1/tasks/{id}/result",
+    tag = "tasks",
+    request_body = SubmitResultRequest,
+    params(
+        ("id" = String, Path, description = "Task ID"),
+    ),
+    responses(
+        (status = 200, description = "Result submitted", body = serde_json::Value),
+        (status = 400, description = "Invalid state transition"),
+        (status = 404, description = "Task not found"),
+    ),
+)]
+pub async fn submit_result(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
     Json(req): Json<SubmitResultRequest>,

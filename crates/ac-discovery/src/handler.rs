@@ -10,16 +10,30 @@ use sqlx::PgPool;
 use crate::service::{DiscoveryService, SearchQuery};
 
 /// Query parameters for GET /search.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct SearchParams {
+    /// Filter by capability name
     pub capability: Option<String>,
+    /// Minimum reliability score threshold
     pub min_reliability: Option<f64>,
+    /// Protocol filter (e.g. "acp/1")
     pub protocol: Option<String>,
+    /// Agent status filter
     pub status: Option<String>,
+    /// Max results (default 20)
     pub limit: Option<i64>,
 }
 
 /// GET /search — search for agents by capability.
+#[utoipa::path(
+    get,
+    path = "/v1/discovery/search",
+    tag = "discovery",
+    params(SearchParams),
+    responses(
+        (status = 200, description = "Search results", body = serde_json::Value),
+    ),
+)]
 pub async fn search(
     State(pool): State<PgPool>,
     Query(params): Query<SearchParams>,

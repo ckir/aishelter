@@ -16,19 +16,35 @@ pub fn routes(pool: PgPool) -> Router {
         .with_state(pool)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct ValidateRequest {
     pub validator_id: String,
     pub decision: String,
     pub reasoning: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct ValidateResponse {
     pub decision: String,
 }
 
-async fn validate_task(
+/// Submit a validation decision for a task.
+#[utoipa::path(
+    post,
+    path = "/v1/validations/{task_id}/validate",
+    tag = "validation",
+    request_body = ValidateRequest,
+    params(
+        ("task_id" = String, Path, description = "Task ID"),
+    ),
+    responses(
+        (status = 200, description = "Quorum decision", body = ValidateResponse,
+         example = json!({"decision": "verified"})),
+        (status = 400, description = "Invalid request"),
+        (status = 404, description = "Task not found"),
+    ),
+)]
+pub async fn validate_task(
     State(pool): State<PgPool>,
     Path(task_id): Path<String>,
     Json(req): Json<ValidateRequest>,
@@ -49,7 +65,20 @@ async fn validate_task(
     Json(ValidateResponse { decision: decision_str.to_string() })
 }
 
-async fn get_validations(
+/// Get all validation decisions for a task.
+#[utoipa::path(
+    get,
+    path = "/v1/validations/{task_id}",
+    tag = "validation",
+    params(
+        ("task_id" = String, Path, description = "Task ID"),
+    ),
+    responses(
+        (status = 200, description = "Validation decisions", body = serde_json::Value),
+        (status = 404, description = "Task not found"),
+    ),
+)]
+pub async fn get_validations(
     State(pool): State<PgPool>,
     Path(task_id): Path<String>,
 ) -> Json<serde_json::Value> {

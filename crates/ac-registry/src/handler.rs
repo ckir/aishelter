@@ -18,33 +18,44 @@ pub fn routes(pool: PgPool) -> Router {
         .with_state(pool)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct RegisterRequest {
     pub agent_id: String,
     pub public_key: String,
     pub profile: Option<ProfileFields>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct ProfileFields {
     pub name: Option<String>,
     pub description: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct RegisterResponse {
     pub agent_id: String,
     pub status: String,
     pub protocol: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct CardUpdateRequest {
     pub name: Option<String>,
     pub description: Option<String>,
 }
 
-async fn register_handler(
+/// Register a new agent.
+#[utoipa::path(
+    post,
+    path = "/v1/agents/register",
+    tag = "registry",
+    request_body = RegisterRequest,
+    responses(
+        (status = 200, description = "Agent registered", body = RegisterResponse),
+        (status = 409, description = "Public key already registered"),
+    ),
+)]
+pub async fn register_handler(
     State(pool): State<PgPool>,
     Json(req): Json<RegisterRequest>,
 ) -> impl IntoResponse {
@@ -76,7 +87,20 @@ async fn register_handler(
     }
 }
 
-async fn get_agent_handler(
+/// Get agent details by ID.
+#[utoipa::path(
+    get,
+    path = "/v1/agents/{id}",
+    tag = "registry",
+    params(
+        ("id" = String, Path, description = "Agent ID"),
+    ),
+    responses(
+        (status = 200, description = "Agent details", body = serde_json::Value),
+        (status = 404, description = "Agent not found"),
+    ),
+)]
+pub async fn get_agent_handler(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
@@ -105,7 +129,21 @@ async fn get_agent_handler(
     }
 }
 
-async fn update_card_handler(
+/// Update agent card (name and description).
+#[utoipa::path(
+    put,
+    path = "/v1/agents/{id}/card",
+    tag = "registry",
+    request_body = CardUpdateRequest,
+    params(
+        ("id" = String, Path, description = "Agent ID"),
+    ),
+    responses(
+        (status = 200, description = "Card updated"),
+        (status = 404, description = "Agent not found"),
+    ),
+)]
+pub async fn update_card_handler(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
     Json(req): Json<CardUpdateRequest>,

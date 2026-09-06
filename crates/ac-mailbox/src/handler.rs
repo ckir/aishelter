@@ -17,13 +17,15 @@ pub fn routes(pool: PgPool) -> Router {
         .with_state(pool)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::IntoParams)]
 pub struct GetMessagesQuery {
-    agent_id: String,
-    unacknowledged: Option<bool>,
+    /// Agent ID to fetch messages for
+    pub agent_id: String,
+    /// Only return unacknowledged messages
+    pub unacknowledged: Option<bool>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct SendMessageRequest {
     pub from_agent_id: String,
     pub to_agent_id: String,
@@ -33,7 +35,18 @@ pub struct SendMessageRequest {
     pub expires_at: Option<String>,
 }
 
-async fn send_message(
+/// Send a message to another agent's mailbox.
+#[utoipa::path(
+    post,
+    path = "/v1/messages",
+    tag = "mailbox",
+    request_body = SendMessageRequest,
+    responses(
+        (status = 200, description = "Message sent", body = serde_json::Value),
+        (status = 400, description = "Invalid request"),
+    ),
+)]
+pub async fn send_message(
     State(pool): State<PgPool>,
     Json(req): Json<SendMessageRequest>,
 ) -> Json<serde_json::Value> {
@@ -58,7 +71,17 @@ async fn send_message(
     }
 }
 
-async fn get_messages(
+/// Get messages for an agent.
+#[utoipa::path(
+    get,
+    path = "/v1/messages",
+    tag = "mailbox",
+    params(GetMessagesQuery),
+    responses(
+        (status = 200, description = "Messages retrieved", body = serde_json::Value),
+    ),
+)]
+pub async fn get_messages(
     State(pool): State<PgPool>,
     Query(query): Query<GetMessagesQuery>,
 ) -> Json<serde_json::Value> {
@@ -71,7 +94,20 @@ async fn get_messages(
     }
 }
 
-async fn get_message(
+/// Get a specific message by ID.
+#[utoipa::path(
+    get,
+    path = "/v1/messages/{id}",
+    tag = "mailbox",
+    params(
+        ("id" = String, Path, description = "Message UUID"),
+    ),
+    responses(
+        (status = 200, description = "Message retrieved", body = serde_json::Value),
+        (status = 404, description = "Message not found"),
+    ),
+)]
+pub async fn get_message(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
 ) -> Json<serde_json::Value> {
@@ -82,7 +118,20 @@ async fn get_message(
     }
 }
 
-async fn acknowledge_message(
+/// Acknowledge a message as read.
+#[utoipa::path(
+    post,
+    path = "/v1/messages/{id}/ack",
+    tag = "mailbox",
+    params(
+        ("id" = String, Path, description = "Message UUID"),
+    ),
+    responses(
+        (status = 200, description = "Message acknowledged", body = serde_json::Value),
+        (status = 404, description = "Message not found"),
+    ),
+)]
+pub async fn acknowledge_message(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
 ) -> Json<serde_json::Value> {

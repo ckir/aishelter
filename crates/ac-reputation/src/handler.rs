@@ -17,7 +17,7 @@ pub struct ReputationState {
 }
 
 /// Reputation scores response.
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct ReputationResponse {
     pub agent_id: String,
     pub reliability: f64,
@@ -32,7 +32,7 @@ pub struct ReputationResponse {
 }
 
 /// Contribution stats response.
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct ContributionsResponse {
     pub vwu_total: i64,
     pub verified_tasks: i64,
@@ -41,6 +41,18 @@ pub struct ContributionsResponse {
 }
 
 /// GET /{id}/reputation — Get reputation scores for an agent.
+#[utoipa::path(
+    get,
+    path = "/v1/agents/{id}/reputation",
+    tag = "reputation",
+    params(
+        ("id" = String, Path, description = "Agent ID"),
+    ),
+    responses(
+        (status = 200, description = "Reputation scores", body = ReputationResponse),
+        (status = 500, description = "Internal error"),
+    ),
+)]
 pub async fn get_reputation(
     Path(agent_id): Path<String>,
     State(state): State<ReputationState>,
@@ -66,6 +78,18 @@ pub async fn get_reputation(
 }
 
 /// GET /{id}/contributions — Get contribution stats for an agent.
+#[utoipa::path(
+    get,
+    path = "/v1/agents/{id}/contributions",
+    tag = "reputation",
+    params(
+        ("id" = String, Path, description = "Agent ID"),
+    ),
+    responses(
+        (status = 200, description = "Contribution stats", body = ContributionsResponse),
+        (status = 500, description = "Internal error"),
+    ),
+)]
 pub async fn get_contributions(
     Path(agent_id): Path<String>,
     State(state): State<ReputationState>,
