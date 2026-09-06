@@ -82,7 +82,7 @@ async fn discovery_search_by_capability() {
     let app = TestApp::setup().await;
     let agent_id = register_agent_with_capability(&app, "fact_verification", "v1").await;
 
-    let resp = app.get("/v1/discovery/search?capability=fact_verification").await;
+    let resp = app.get("/v1/discovery/search?capability=fact_verification&status=REGISTERED").await;
     let status = TestApp::status(&resp);
     assert_eq!(status, StatusCode::OK);
 

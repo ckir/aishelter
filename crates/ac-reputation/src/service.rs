@@ -57,6 +57,16 @@ impl ReputationService {
     }
 
     pub async fn get_reputation(&self, agent_id: &str) -> Result<ReputationSnapshot, AcError> {
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM agents WHERE agent_id = $1)")
+            .bind(agent_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AcError::Database(e.to_string()))?;
+            
+        if !exists {
+            return Err(AcError::AgentNotFound(agent_id.to_string()));
+        }
+
         let row: Option<RepRow> = sqlx::query_as(
             "SELECT reliability, reliability_confidence, task_success, task_success_confidence,
                     verification_accuracy, verification_accuracy_confidence,
@@ -97,6 +107,16 @@ impl ReputationService {
     }
 
     pub async fn get_contributions(&self, agent_id: &str) -> Result<ContributionStats, AcError> {
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM agents WHERE agent_id = $1)")
+            .bind(agent_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AcError::Database(e.to_string()))?;
+            
+        if !exists {
+            return Err(AcError::AgentNotFound(agent_id.to_string()));
+        }
+
         let vwu_total: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM work_receipts WHERE agent_id = $1 AND status = 'verified'",
         )

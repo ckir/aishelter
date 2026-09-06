@@ -77,7 +77,7 @@ pub async fn send_message(
         .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&chrono::Utc));
 
-    service
+    let message_id = service
         .send_message(
             &req.from_agent_id,
             &req.to_agent_id,
@@ -87,7 +87,7 @@ pub async fn send_message(
         )
         .await?;
         
-    Ok(Json(serde_json::json!({ "status": "sent" })))
+    Ok(Json(serde_json::json!({ "status": "sent", "message_id": message_id })))
 }
 
 #[utoipa::path(
