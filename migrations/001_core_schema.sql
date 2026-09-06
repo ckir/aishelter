@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS nonces (
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_messages_to_agent ON messages(to_agent_id, acknowledged);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-CREATE INDEX IF NOT EXISTS idx_tasks_requester ON tasks(requester_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_requester ON tasks(requester_agent_id);
 CREATE INDEX IF NOT EXISTS idx_reputation_events_agent ON reputation_events(agent_id, timestamp);
 CREATE INDEX IF NOT EXISTS idx_validations_task ON validations(task_id);
 CREATE INDEX IF NOT EXISTS idx_audit_events_created ON audit_events(created_at);
