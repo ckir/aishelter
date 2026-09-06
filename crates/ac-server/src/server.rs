@@ -1,3 +1,13 @@
+//! Axum HTTP server and route registration.
+//!
+//! This module assembles the top-level [`axum::Router`] that serves all
+//! Agent Commons API endpoints.  Each feature crate (registry, discovery,
+//! mailbox, tasks, validation, reputation) contributes its own nested
+//! sub-router via `pub fn routes(pool) -> Router`.
+//!
+//! The server also hosts the Scalar interactive API documentation at
+//! `/docs` and the raw OpenAPI specification at `/api/openapi.json`.
+
 use axum::{Router, routing::get};
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
@@ -7,6 +17,13 @@ use utoipa_scalar::{Scalar, Servable};
 use crate::routes::ApiDoc;
 
 /// Create the main application router with all sub-routes mounted.
+///
+/// The returned router includes:
+/// - System endpoints (`/v1/health`, `/v1/version`)
+/// - Feature sub-routers under `/v1/{feature}`
+/// - HTTP request tracing via `tower-http`
+/// - OpenAPI JSON at `/api/openapi.json`
+/// - Interactive Scalar UI at `/docs`
 pub fn create_app(pool: PgPool) -> Router {
     let app = Router::new()
         .route("/v1/health", get(health_check))
@@ -26,6 +43,9 @@ pub fn create_app(pool: PgPool) -> Router {
 }
 
 /// GET /v1/health — liveness probe.
+///
+/// Returns `"ok"` with HTTP 200 if the server is running.
+/// Used by container orchestrators and load balancers.
 #[utoipa::path(
     get,
     path = "/v1/health",
@@ -39,6 +59,9 @@ async fn health_check() -> &'static str {
 }
 
 /// GET /v1/version — version and protocol info.
+///
+/// Returns the server version and the ACP protocol version it implements.
+/// Clients can use this to verify compatibility before making requests.
 #[utoipa::path(
     get,
     path = "/v1/version",

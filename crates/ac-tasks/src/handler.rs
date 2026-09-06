@@ -1,13 +1,23 @@
+//! Axum HTTP route handlers for task operations (§18).
+//!
+//! Exposes five REST endpoints:
+//! - `POST /` — create a new task contract
+//! - `GET /{id}` — retrieve task details
+//! - `POST /{id}/accept` — accept a task offer
+//! - `POST /{id}/reject` — reject a task offer
+//! - `POST /{id}/result` — submit a task result
+
 use axum::{
-    Json, Router,
     extract::{Path, State},
     routing::{get, post},
+    Json, Router,
 };
 use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::service::TaskService;
 
+/// Build the task router with all five endpoints.
 pub fn routes(pool: PgPool) -> Router {
     Router::new()
         .route("/", post(create_task))
@@ -18,30 +28,48 @@ pub fn routes(pool: PgPool) -> Router {
         .with_state(pool)
 }
 
+/// Request body for [`create_task`].
 #[derive(Deserialize, utoipa::ToSchema)]
 pub struct CreateTaskRequest {
+    /// Agent ID of the task requester.
     pub requester: String,
+    /// Capability required to execute the task (e.g. `"fact_verification"`).
     pub capability: String,
+    /// Human-readable description of the work.
     pub description: String,
+    /// JSON-encoded input data for the task executor.
     pub input: serde_json::Value,
+    /// Optional deadline for task completion.
     pub deadline: Option<chrono::DateTime<chrono::Utc>>,
+    /// Verification method: `"peer"`, `"requester"`, or `"deterministic"`.
     pub verification_method: Option<String>,
+    /// Number of validator approvals required (default 2).
     pub required_validators: Option<i32>,
 }
 
+/// Request body for [`accept_task`] and [`reject_task`].
 #[derive(Deserialize, utoipa::ToSchema)]
 pub struct TaskActionRequest {
+    /// Agent ID of the executor responding to the offer.
     pub agent_id: String,
 }
 
+/// Request body for [`submit_result`].
 #[derive(Deserialize, utoipa::ToSchema)]
 pub struct SubmitResultRequest {
+    /// Agent ID of the executor submitting the result.
     pub agent_id: String,
+    /// JSON-encoded result data.
     pub result: serde_json::Value,
+    /// SHA-256 hash of the output for tamper-evident verification.
     pub output_hash: String,
 }
 
-/// Create a new task.
+/// Create a new task contract.
+///
+/// The task starts in the `CREATED` state.  The requester is recorded,
+/// and the capability, input data, and verification parameters are stored
+/// (§18).
 #[utoipa::path(
     post,
     path = "/v1/tasks",
@@ -56,6 +84,7 @@ pub async fn create_task(
     Json(req): Json<CreateTaskRequest>,
 ) -> Json<serde_json::Value> {
     let service = TaskService::new(pool);
+    // Apply sensible defaults when the caller omits them.
     let verification_method = req.verification_method.unwrap_or_else(|| "peer".to_string());
     let required_validators = req.required_validators.unwrap_or(2);
 
@@ -76,7 +105,7 @@ pub async fn create_task(
     }
 }
 
-/// Get task details by ID.
+/// Retrieve full task details by ID.
 #[utoipa::path(
     get,
     path = "/v1/tasks/{id}",
@@ -101,6 +130,9 @@ pub async fn get_task(
 }
 
 /// Accept a task offer.
+///
+/// Transitions the task from `CREATED` or `OFFERED` to `ACCEPTED`
+/// and records the accepting agent as the assignee (§18).
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/accept",
@@ -128,6 +160,8 @@ pub async fn accept_task(
 }
 
 /// Reject a task offer.
+///
+/// Only valid when the task is in the `OFFERED` state (§18).
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/reject",
@@ -154,7 +188,11 @@ pub async fn reject_task(
     }
 }
 
-/// Submit task result.
+/// Submit a task result for validation.
+///
+/// The executor provides the result JSON and a SHA-256 hash of the
+/// output.  The task transitions to `SUBMITTED` and a row is inserted
+/// into the `task_results` table (§20).
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/result",

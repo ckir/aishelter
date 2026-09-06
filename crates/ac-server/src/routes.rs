@@ -1,5 +1,20 @@
+//! OpenAPI specification definition and serving endpoint.
+//!
+//! This module defines the [`ApiDoc`] struct that aggregates all documented
+//! API paths across the workspace into a single OpenAPI 3.0 document, and
+//! provides the `openapi` handler to serve it as JSON.
+
 use utoipa::OpenApi;
 
+/// Root OpenAPI specification for the Agent Commons API.
+///
+/// This struct derives [`utoipa::OpenApi`] and collects all documented
+/// handler functions from every feature crate.  The resulting document
+/// includes:
+/// - All 19 API endpoint paths with request/response schemas
+/// - 7 tag groupings (system, registry, discovery, mailbox, tasks, validation, reputation)
+/// - API metadata (title, version, description, contact, license)
+/// - Server URL for the local development instance
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -45,7 +60,10 @@ use utoipa::OpenApi;
 )]
 pub struct ApiDoc;
 
-/// GET /api/openapi.json — the raw OpenAPI spec.
+/// GET /api/openapi.json — the raw OpenAPI specification.
+///
+/// Returns the complete OpenAPI 3.0 document as JSON, suitable for
+/// importing into API clients, code generators, or documentation tools.
 pub async fn openapi() -> axum::Json<utoipa::openapi::OpenApi> {
     axum::Json(ApiDoc::openapi())
 }

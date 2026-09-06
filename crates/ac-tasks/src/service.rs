@@ -1,3 +1,10 @@
+//! Core task service with database access (§18-20).
+//!
+//! The [`TaskService`] owns all database interactions for the task
+//! subsystem: creating task contracts, querying task state, transitioning
+//! tasks through the lifecycle state machine, and recording submitted
+//! results.
+
 use ac_types::error::AcError;
 use ac_types::task::TaskStatus;
 use chrono::Utc;
@@ -6,15 +13,22 @@ use uuid::Uuid;
 
 use crate::lifecycle::is_valid_transition;
 
+/// Task service backed by a PostgreSQL connection pool.
 pub struct TaskService {
+    /// PostgreSQL connection pool.
     pool: PgPool,
 }
 
 impl TaskService {
+    /// Create a new task service from a connection pool.
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// Create a new task contract and store it in the database.
+    ///
+    /// // Generate a UUID-based task ID.
+    /// // Insert the row with status = 'CREATED'.
     #[allow(clippy::too_many_arguments)]
     pub async fn create_task(
         &self,
@@ -31,7 +45,7 @@ impl TaskService {
 
         sqlx::query(
             "INSERT INTO tasks (task_id, requester_agent_id, capability, description, input, constraints_deadline, verification_method, required_validators, status, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'CREATED', $9, $9)"
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'CREATED', $9, $9)",
         )
         .bind(&task_id)
         .bind(requester_id)
@@ -49,20 +63,24 @@ impl TaskService {
         Ok(task_id)
     }
 
+    /// Retrieve full task details by ID.
+    ///
+    /// // Read all task columns and return as a JSON object.
     pub async fn get_task(&self, task_id: &str) -> Result<serde_json::Value, AcError> {
+        // Pre-declare the tuple type for the SELECT columns.
         type TaskRow = (
-            String,
-            String,
-            Option<String>,
-            String,
-            String,
-            serde_json::Value,
-            Option<chrono::DateTime<Utc>>,
-            String,
-            i32,
-            String,
-            chrono::DateTime<Utc>,
-            chrono::DateTime<Utc>,
+            String,           // task_id
+            String,           // requester_agent_id
+            Option<String>,   // assigned_agent_id
+            String,           // capability
+            String,           // description
+            serde_json::Value, // input
+            Option<chrono::DateTime<Utc>>, // constraints_deadline
+            String,           // verification_method
+            i32,              // required_validators
+            String,           // status
+            chrono::DateTime<Utc>, // created_at
+            chrono::DateTime<Utc>, // updated_at
         );
         let row: Option<TaskRow> = sqlx::query_as(
             "SELECT task_id, requester_agent_id, assigned_agent_id, capability, description,
@@ -87,6 +105,10 @@ impl TaskService {
         }
     }
 
+    /// Accept a task offer.
+    ///
+    /// // Validates that the current status is CREATED or OFFERED.
+    /// // Sets assigned_agent_id and transitions to ACCEPTED.
     pub async fn accept_task(&self, task_id: &str, agent_id: &str) -> Result<(), AcError> {
         self.do_transition(
             task_id,
@@ -98,10 +120,17 @@ impl TaskService {
         .await
     }
 
+    /// Reject a task offer.
+    ///
+    /// // Only valid from the OFFERED state.
     pub async fn reject_task(&self, task_id: &str, _agent_id: &str) -> Result<(), AcError> {
         self.transition_task_simple(task_id, TaskStatus::Offered, TaskStatus::Rejected).await
     }
 
+    /// Submit a task result for validation.
+    ///
+    /// // Checks that the current status allows a transition to SUBMITTED.
+    /// // Inserts a row into task_results with the output hash.
     pub async fn submit_result(
         &self,
         task_id: &str,
@@ -109,6 +138,7 @@ impl TaskService {
         result: serde_json::Value,
         output_hash: &str,
     ) -> Result<(), AcError> {
+        // Read the current task status to validate the transition.
         let current_status: String =
             sqlx::query_scalar("SELECT status FROM tasks WHERE task_id = $1")
                 .bind(task_id)
@@ -121,6 +151,7 @@ impl TaskService {
             .parse()
             .map_err(|_| AcError::Internal(format!("invalid task status: {}", current_status)))?;
 
+        // Reject if the state machine doesn't allow this transition.
         if !is_valid_transition(from, TaskStatus::Submitted) {
             return Err(AcError::InvalidTaskTransition {
                 from: current_status,
@@ -128,12 +159,14 @@ impl TaskService {
             });
         }
 
+        // Transition the task to SUBMITTED.
         sqlx::query("UPDATE tasks SET status = 'SUBMITTED', updated_at = NOW() WHERE task_id = $1")
             .bind(task_id)
             .execute(&self.pool)
             .await
             .map_err(|e| AcError::Database(e.to_string()))?;
 
+        // Record the submitted result with its output hash.
         sqlx::query(
             "INSERT INTO task_results (task_id, agent_id, result_data, output_hash, submitted_at)
              VALUES ($1, $2, $3, $4, NOW())",
@@ -149,6 +182,11 @@ impl TaskService {
         Ok(())
     }
 
+    /// Transition a task, optionally setting the assigned agent.
+    ///
+    /// // Validates the current status is in from_allowed.
+    /// // Checks is_valid_transition for the state machine rule.
+    /// // Updates status and optionally assigned_agent_id.
     async fn do_transition(
         &self,
         task_id: &str,
@@ -169,6 +207,7 @@ impl TaskService {
             .parse()
             .map_err(|_| AcError::Internal(format!("invalid task status: {}", current_status)))?;
 
+        // Both the allowed-from list and the state machine must agree.
         if !from_allowed.contains(&from) || !is_valid_transition(from, to) {
             return Err(AcError::InvalidTaskTransition {
                 from: current_status,
@@ -178,7 +217,7 @@ impl TaskService {
 
         if set_assigned {
             sqlx::query(
-                "UPDATE tasks SET status = $1, assigned_agent_id = $2, updated_at = NOW() WHERE task_id = $3"
+                "UPDATE tasks SET status = $1, assigned_agent_id = $2, updated_at = NOW() WHERE task_id = $3",
             )
             .bind(format!("{:?}", to))
             .bind(agent_id)
@@ -198,6 +237,9 @@ impl TaskService {
         Ok(())
     }
 
+    /// Transition a task without modifying assigned_agent_id.
+    ///
+    /// // Used for simple single-from transitions like OFFERED→REJECTED.
     async fn transition_task_simple(
         &self,
         task_id: &str,
@@ -216,6 +258,7 @@ impl TaskService {
             .parse()
             .map_err(|_| AcError::Internal(format!("invalid task status: {}", current_status)))?;
 
+        // Both the expected-from state and the state machine must agree.
         if cur != from || !is_valid_transition(cur, to) {
             return Err(AcError::InvalidTaskTransition {
                 from: current_status,
