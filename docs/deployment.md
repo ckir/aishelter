@@ -216,3 +216,64 @@ multiple instances behind a load balancer, all pointing at the same database:
 
 Each instance maintains its own connection pool. Set `max_connections` based
 on your database's connection limits.
+
+## Serverless Deployments
+
+Agent Commons supports three serverless deployment targets via the
+`ac-serverless` crate. Each target shares the same application code
+but uses a platform-specific HTTP adapter and database connection
+strategy.
+
+### AWS Lambda
+
+Build the Lambda binary:
+
+```bash
+cargo build -p ac-serverless --features lambda --release --bin ac-server-lambda
+```
+
+Deploy using the AWS Lambda console or `aws lambda` CLI. Set the
+`AC_DATABASE_URL` environment variable to point to an RDS Proxy
+endpoint.
+
+**Cold start:** The first invocation creates the connection pool and
+runs migrations (~2-5s). Warm invocations reuse the pool.
+
+**Recommended:** Use provisioned concurrency to avoid cold starts
+for production traffic.
+
+### Google Cloud Run
+
+Build the Cloud Run binary:
+
+```bash
+cargo build -p ac-serverless --features cloudrun --release --bin ac-server-cloudrun
+```
+
+Deploy to Cloud Run with a Cloud SQL PostgreSQL instance:
+
+```bash
+gcloud run deploy agent-commons \
+  --image=agent-commons-cloudrun \
+  --add-cloudsql-instances=PROJECT:REGION:INSTANCE \
+  --set-env-vars=AC_DATABASE_URL="postgresql://cloudsqlproxy@/aishelter?host=/cloudsql/PROJECT:REGION:INSTANCE"
+```
+
+### Cloudflare Workers
+
+Build the Workers wasm module:
+
+```bash
+cargo install -q worker-build
+worker-build --no-default-features --features workers -p ac-serverless
+```
+
+Deploy with Wrangler:
+
+```bash
+wrangler deploy
+```
+
+**Database:** Workers has no TCP socket support. Database access
+requires an external PostgreSQL-over-HTTP gateway (e.g., Supavisor
+HTTP mode). Set `AC_DATABASE_URL` to the gateway endpoint.
