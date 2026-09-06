@@ -57,6 +57,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tracing",
+ "utoipa",
 ]
 
 [[package]]
@@ -74,6 +75,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tracing",
+ "utoipa",
  "uuid",
 ]
 
@@ -93,6 +95,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tracing",
+ "utoipa",
  "uuid",
 ]
 
@@ -110,6 +113,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tracing",
+ "utoipa",
  "uuid",
 ]
 
@@ -166,6 +170,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tracing",
+ "utoipa",
  "uuid",
 ]
 
@@ -187,6 +192,7 @@ name = "ac-validation"
 version = "0.1.0"
 dependencies = [
  "ac-api",
+ "ac-crypto",
  "ac-db",
  "ac-tasks",
  "ac-types",
@@ -197,6 +203,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tracing",
+ "utoipa",
  "uuid",
 ]
 

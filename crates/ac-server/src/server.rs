@@ -1,7 +1,8 @@
 use axum::{Router, routing::get};
 use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
-use utoipa_scalar::{Scalar, ScalarApi};
+use utoipa::OpenApi;
+use utoipa_scalar::{Scalar, Servable};
 
 use crate::routes::ApiDoc;
 
@@ -22,7 +23,6 @@ pub fn create_app(pool: PgPool) -> Router {
     let doc = ApiDoc::openapi();
     app.route("/api/openapi.json", get(crate::routes::openapi))
         .merge(Scalar::with_url("/docs", doc))
-        .merge(app)
 }
 
 /// GET /v1/health — liveness probe.
