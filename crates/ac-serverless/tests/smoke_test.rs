@@ -37,9 +37,9 @@ async fn create_test_pool() -> PgPool {
         // Use the CI-provided postgres service when available.
         // Create an isolated database for this test to avoid conflicts.
         use sqlx::Connection;
-        let admin_conn =
-            sqlx::PgConnection::connect(&dsn).await.expect("failed to connect as admin");
         let test_db = format!("test_{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
+        let mut admin_conn =
+            sqlx::PgConnection::connect(&dsn).await.expect("failed to connect as admin");
         sqlx::query(&format!("CREATE DATABASE {}", test_db))
             .execute(&mut admin_conn)
             .await

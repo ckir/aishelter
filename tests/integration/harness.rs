@@ -39,8 +39,6 @@ impl TestApp {
             // Create an isolated database for this test to avoid conflicts
             // when multiple tests run in parallel via nextest.
             use sqlx::Connection;
-            let admin_pool =
-                PgPool::connect(&dsn).await.expect("failed to connect to DATABASE_URL");
             let test_db = format!("test_{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
             let create_db = format!("CREATE DATABASE {}", test_db);
             // Connect to the admin database to create the test db
