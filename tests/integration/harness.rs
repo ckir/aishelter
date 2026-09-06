@@ -42,12 +42,9 @@ impl TestApp {
 
         // Resolve migrations path relative to the workspace root.
         // The [[test]] target's crate root is tests/integration/, so we go up two levels.
-        let migrations_path = std::env::current_dir()
-            .expect("failed to get current dir")
-            .join("migrations");
-        let migrator = Migrator::new(migrations_path)
-            .await
-            .expect("failed to create migrator");
+        let migrations_path =
+            std::env::current_dir().expect("failed to get current dir").join("migrations");
+        let migrator = Migrator::new(migrations_path).await.expect("failed to create migrator");
         migrator.run(&pool).await.expect("failed to run migrations");
 
         let app = ac_server::server::create_app(pool.clone());
