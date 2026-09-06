@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "ac-api"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-crypto",
  "ac-types",
@@ -16,7 +16,7 @@ dependencies = [
 
 [[package]]
 name = "ac-crypto"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-types",
  "chrono",
@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "ac-db"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-types",
  "anyhow",
@@ -46,7 +46,7 @@ dependencies = [
 
 [[package]]
 name = "ac-discovery"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-api",
  "ac-db",
@@ -62,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "ac-mailbox"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "ac-metrics"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "axum",
  "http-body",
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "ac-registry"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -114,7 +114,7 @@ dependencies = [
 
 [[package]]
 name = "ac-reputation"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-api",
  "ac-db",
@@ -132,7 +132,7 @@ dependencies = [
 
 [[package]]
 name = "ac-runtime"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "ac-server"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -193,7 +193,7 @@ dependencies = [
 
 [[package]]
 name = "ac-serverless"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "ac-metrics",
  "ac-runtime",
@@ -213,7 +213,7 @@ dependencies = [
 
 [[package]]
 name = "ac-tasks"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "ac-types"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "axum",
  "chrono",
@@ -246,7 +246,7 @@ dependencies = [
 
 [[package]]
 name = "ac-validation"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-api",
  "ac-crypto",
@@ -289,7 +289,7 @@ dependencies = [
 
 [[package]]
 name = "aishelter"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ac-metrics",
  "ac-server",
