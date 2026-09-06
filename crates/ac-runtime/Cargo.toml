@@ -18,10 +18,12 @@ tokio = { workspace = true }
 bytes = "1"
 http-body-util = "0.1"
 tracing = { workspace = true }
+worker = { version = "0.8.5", features = ["axum"], optional = true }
 
 [features]
 lambda = ["dep:lambda_http", "dep:lambda_runtime"]
 cloudrun = []
+workers = ["dep:worker"]
 
 [dev-dependencies]
 futures = "0.3"

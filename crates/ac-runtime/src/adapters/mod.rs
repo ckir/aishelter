@@ -10,3 +10,6 @@ pub mod lambda;
 
 #[cfg(feature = "cloudrun")]
 pub mod cloudrun;
+
+#[cfg(feature = "workers")]
+pub mod workers;
