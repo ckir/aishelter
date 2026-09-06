@@ -60,6 +60,10 @@ reset:
 demo:
     cargo nextest run --workspace e2e
 
+# Validate API responses against OpenAPI spec
+openapi-validate:
+    cargo nextest run --test integration openapi
+
 # Clean build artifacts
 clean:
     cargo clean
