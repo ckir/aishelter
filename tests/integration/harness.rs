@@ -66,11 +66,9 @@ impl TestApp {
         };
 
         // Resolve migrations path relative to the workspace root.
-        // The test's CWD may vary depending on the test runner, so try multiple paths.
-        let cwd = std::env::current_dir().expect("failed to get current dir");
-        let migrations_path = cwd.join("migrations");
+        // The integration test lives in tests/integration/, so workspace root is ../..
         let migrations_path =
-            if migrations_path.is_dir() { migrations_path } else { cwd.join("../../migrations") };
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../migrations");
         let migrator = Migrator::new(migrations_path).await.expect("failed to create migrator");
         migrator.run(&pool).await.expect("failed to run migrations");
 

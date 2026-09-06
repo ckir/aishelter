@@ -68,17 +68,12 @@ async fn create_test_pool() -> PgPool {
 
 /// Run migrations from the workspace root.
 async fn run_migrations(pool: &PgPool) {
-    // The test's CWD may be the crate root or workspace root.
-    // Try both paths: workspace root "migrations/" and crate root "../../migrations/".
-    let cwd = std::env::current_dir().expect("no cwd");
-    let migrations_path = cwd.join("migrations");
-    if !migrations_path.is_dir() {
-        let migrations_path = cwd.join("../../migrations");
-        if !migrations_path.is_dir() {
-            panic!("migrations directory not found from cwd: {:?}", cwd);
-        }
-    }
-    let migrator =
-        sqlx::migrate::Migrator::new(migrations_path).await.expect("failed to create migrator");
+    // Use CARGO_MANIFEST_DIR (always the crate root) to resolve the migrations path.
+    // From crates/ac-serverless/, the workspace root is ../../.
+    let crate_dir = env!("CARGO_MANIFEST_DIR");
+    let migrations_path = format!("{}/../../migrations", crate_dir);
+    let migrator = sqlx::migrate::Migrator::new(std::path::PathBuf::from(migrations_path))
+        .await
+        .expect("failed to create migrator");
     migrator.run(pool).await.expect("failed to run migrations");
 }
