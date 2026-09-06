@@ -1,20 +1,10 @@
-# Ignore large/generated directories that aren't relevant for code work
+# Ignore build artifacts and large generated directories
 target/
-**/target/
-*.pdb
-mutants.out*/
-
-# Binary artifacts
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Data files
-*.parquet
-*.sqlite
-*.db
 
 # OS artifacts
+*.pdb
 .DS_Store
 Thumbs.db
+
+# Mutation testing output
+mutants.out*/
