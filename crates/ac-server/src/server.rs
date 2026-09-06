@@ -8,8 +8,10 @@
 //! The server also hosts the Scalar interactive API documentation at
 //! `/docs` and the raw OpenAPI specification at `/api/openapi.json`.
 
+use ac_metrics::middleware::record_metrics;
 use ac_metrics::readiness;
-use axum::{Router, routing::get};
+use ac_metrics::registry::Metrics;
+use axum::{Router, extract::Extension, middleware::from_fn, routing::get};
 use http::header::HeaderName;
 use sqlx::PgPool;
 use tower_http::request_id::{MakeRequestUuid, SetRequestIdLayer};
@@ -23,15 +25,17 @@ use crate::routes::ApiDoc;
 /// Create the main application router with all sub-routes mounted.
 ///
 /// The returned router includes:
-/// - System endpoints (`/v1/health`, `/v1/version`)
-/// - Feature sub-routers under `/v1/{feature}`
+/// - System endpoints (`/v1/health`, `/v1/version`, `/metrics`)
+/// - Feature sub-routes under `/v1/{feature}`
 /// - HTTP request tracing via `tower-http`
+/// - Metrics middleware recording request counts and durations
 /// - OpenAPI JSON at `/api/openapi.json`
 /// - Interactive Scalar UI at `/docs`
-pub fn create_app(pool: PgPool) -> Router {
+pub fn create_app(pool: PgPool, metrics: Metrics) -> Router {
     let app = Router::new()
         .route("/v1/health", get(health_check))
         .route("/v1/version", get(version_check))
+        .route("/metrics", get(metrics_handler))
         .route(
             "/v1/ready",
             get({
@@ -51,14 +55,13 @@ pub fn create_app(pool: PgPool) -> Router {
         .nest("/v1/tasks", ac_tasks::handler::routes(pool.clone()))
         .nest("/v1/validations", ac_validation::handler::routes(pool.clone()))
         .nest("/v1/agents", ac_reputation::handler::routes(pool.clone()))
+        .layer(Extension(metrics.clone()))
+        .layer(from_fn(record_metrics))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().include_headers(true).level(Level::INFO)),
         )
-        .layer(SetRequestIdLayer::new(
-            HeaderName::from_static("x-request-id"),
-            MakeRequestUuid,
-        ));
+        .layer(SetRequestIdLayer::new(HeaderName::from_static("x-request-id"), MakeRequestUuid));
 
     // Merge OpenAPI spec and Scalar docs
     let doc = ApiDoc::openapi();
@@ -100,4 +103,18 @@ async fn version_check() -> axum::Json<serde_json::Value> {
         "version": "0.1.0",
         "protocol": "acp/1"
     }))
+}
+
+/// GET /metrics — Prometheus metrics endpoint.
+///
+/// Returns all registered metrics in Prometheus text exposition format.
+/// Consumed by Prometheus scrapers for observability dashboards.
+async fn metrics_handler(
+    Extension(metrics): Extension<Metrics>,
+) -> (axum::http::StatusCode, [(http::HeaderName, &'static str); 1], String) {
+    (
+        axum::http::StatusCode::OK,
+        [(http::header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+        metrics.encode(),
+    )
 }

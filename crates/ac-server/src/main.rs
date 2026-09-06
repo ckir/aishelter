@@ -12,6 +12,7 @@
 //! | `AC_HOST` | HTTP bind address | `0.0.0.0` |
 //! | `AC_PORT` | HTTP listen port | `3000` |
 
+use ac_metrics::registry::Metrics;
 use ac_server::config::Settings;
 use ac_server::server::create_app;
 use sqlx::postgres::PgPoolOptions;
@@ -41,8 +42,11 @@ async fn main() -> anyhow::Result<()> {
     // Run pending database migrations
     sqlx::migrate!("../../migrations").run(&pool).await?;
 
+    // Create metrics registry
+    let metrics = Metrics::new();
+
     // Build the application router
-    let app = create_app(pool);
+    let app = create_app(pool, metrics);
 
     tracing::info!("Agent Commons starting on {}:{}", settings.host, settings.port);
 
