@@ -1,0 +1,24 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  docs:
+    name: Publish docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build docs
+        run: cargo doc --workspace --no-deps --document-private-items
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: target/doc
+          force_orphan: true

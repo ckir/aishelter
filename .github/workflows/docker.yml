@@ -1,0 +1,17 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t aishelter:ci .
+      - name: Verify image
+        run: docker image inspect aishelter:ci --format '{{.Size}}'
