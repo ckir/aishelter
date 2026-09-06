@@ -19,11 +19,11 @@ use std::{
     task::{Context, Poll},
 };
 
-use axum::body::Body as AxumBody;
 use axum::Router;
+use axum::body::Body as AxumBody;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
-use lambda_http::{self, service_fn, Body as LambdaBody, Request, Response};
+use lambda_http::{self, Body as LambdaBody, Request, Response, service_fn};
 use tower::Service as TowerService;
 
 use crate::{HttpAdapter, Result};
@@ -63,7 +63,8 @@ pub struct RouterService {
 impl TowerService<Request> for RouterService {
     type Response = Response<LambdaBody>;
     type Error = Infallible;
-    type Future = Pin<Box<dyn Future<Output = std::result::Result<Response<LambdaBody>, Infallible>> + Send>>;
+    type Future =
+        Pin<Box<dyn Future<Output = std::result::Result<Response<LambdaBody>, Infallible>> + Send>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<std::result::Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -100,10 +101,8 @@ impl TowerService<Request> for RouterService {
             let lambda_body = LambdaBody::Binary(body_bytes.to_vec());
 
             // Response::builder with a valid status and body never fails
-            let mut resp = http::Response::builder()
-                .status(resp_parts.status)
-                .body(lambda_body)
-                .unwrap();
+            let mut resp =
+                http::Response::builder().status(resp_parts.status).body(lambda_body).unwrap();
             *resp.headers_mut() = resp_parts.headers;
             Ok(resp)
         })
@@ -112,10 +111,7 @@ impl TowerService<Request> for RouterService {
 
 /// Build an HTTP error response with the given status and message.
 fn make_error_response(status: u16, message: &'static str) -> Response<LambdaBody> {
-    http::Response::builder()
-        .status(status)
-        .body(LambdaBody::from(message))
-        .unwrap()
+    http::Response::builder().status(status).body(LambdaBody::from(message)).unwrap()
 }
 
 /// Tower service that delegates to a [`RouterService`].
@@ -128,9 +124,7 @@ pub struct LambdaHandler {
 impl LambdaHandler {
     /// Create a new handler from an axum router.
     pub fn new(router: Router) -> Self {
-        Self {
-            service: RouterService { router },
-        }
+        Self { service: RouterService { router } }
     }
 }
 
@@ -150,17 +144,13 @@ impl TowerService<Request> for LambdaHandler {
 
 impl Clone for LambdaHandler {
     fn clone(&self) -> Self {
-        Self {
-            service: self.service.clone(),
-        }
+        Self { service: self.service.clone() }
     }
 }
 
 impl Clone for RouterService {
     fn clone(&self) -> Self {
-        Self {
-            router: self.router.clone(),
-        }
+        Self { router: self.router.clone() }
     }
 }
 

@@ -25,10 +25,7 @@ impl CloudRunHttpAdapter {
     /// (Cloud Run convention), defaulting to 3000.
     pub fn new(host: String, port: Option<u16>) -> Self {
         let port = port.unwrap_or_else(|| {
-            std::env::var("PORT")
-                .ok()
-                .and_then(|p| p.parse().ok())
-                .unwrap_or(3000)
+            std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3000)
         });
         Self { host, port }
     }
@@ -39,9 +36,7 @@ impl HttpAdapter for CloudRunHttpAdapter {
         let addr = format!("{}:{}", self.host, self.port);
         let listener = TcpListener::bind(&addr).await?;
         tracing::info!("Cloud Run adapter listening on {}", addr);
-        axum::serve(listener, router)
-            .with_graceful_shutdown(shutdown_signal())
-            .await?;
+        axum::serve(listener, router).with_graceful_shutdown(shutdown_signal()).await?;
         Ok(())
     }
 }
@@ -51,7 +46,7 @@ impl HttpAdapter for CloudRunHttpAdapter {
 async fn shutdown_signal() {
     #[cfg(unix)]
     {
-        use tokio::signal::unix::{signal, SignalKind};
+        use tokio::signal::unix::{SignalKind, signal};
         let mut sigterm = signal(SignalKind::Term).expect("failed to install SIGTERM handler");
         let ctrl_c = tokio::signal::ctrl_c();
         tokio::select! {

@@ -35,10 +35,7 @@ pub trait HttpAdapter: Send + Sync + 'static {
     /// Blocks until the platform signals shutdown (SIGTERM, Lambda
     /// runtime exit, etc.) or an unrecoverable error occurs. Returns
     /// `Ok(())` on clean shutdown, `Err` otherwise.
-    fn serve(
-        self,
-        router: Router,
-    ) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn serve(self, router: Router) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 
 /// Abstracts platform-specific database connection creation.
