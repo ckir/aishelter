@@ -69,18 +69,18 @@ impl TaskService {
     pub async fn get_task(&self, task_id: &str) -> Result<serde_json::Value, AcError> {
         // Pre-declare the tuple type for the SELECT columns.
         type TaskRow = (
-            String,           // task_id
-            String,           // requester_agent_id
-            Option<String>,   // assigned_agent_id
-            String,           // capability
-            String,           // description
-            serde_json::Value, // input
+            String,                        // task_id
+            String,                        // requester_agent_id
+            Option<String>,                // assigned_agent_id
+            String,                        // capability
+            String,                        // description
+            serde_json::Value,             // input
             Option<chrono::DateTime<Utc>>, // constraints_deadline
-            String,           // verification_method
-            i32,              // required_validators
-            String,           // status
-            chrono::DateTime<Utc>, // created_at
-            chrono::DateTime<Utc>, // updated_at
+            String,                        // verification_method
+            i32,                           // required_validators
+            String,                        // status
+            chrono::DateTime<Utc>,         // created_at
+            chrono::DateTime<Utc>,         // updated_at
         );
         let row: Option<TaskRow> = sqlx::query_as(
             "SELECT task_id, requester_agent_id, assigned_agent_id, capability, description,

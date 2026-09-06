@@ -13,14 +13,14 @@ use uuid::Uuid;
 ///
 /// Fields: `(message_id, from_agent_id, to_agent_id, message_type, payload, expires_at, created_at, acknowledged)`.
 type MessageRow = (
-    Uuid,           // message_id
-    String,         // from_agent_id
-    String,         // to_agent_id
-    String,         // message_type
-    serde_json::Value, // payload
+    Uuid,                          // message_id
+    String,                        // from_agent_id
+    String,                        // to_agent_id
+    String,                        // message_type
+    serde_json::Value,             // payload
     Option<chrono::DateTime<Utc>>, // expires_at
-    chrono::DateTime<Utc>, // created_at
-    bool,           // acknowledged
+    chrono::DateTime<Utc>,         // created_at
+    bool,                          // acknowledged
 );
 
 /// Persistent mailbox service.

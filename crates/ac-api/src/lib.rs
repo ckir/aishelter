@@ -1,10 +1,1 @@
-//! HTTP error handling and response types for the Agent Commons API.
-//!
-//! This crate provides the [`ApiResponse<T>`] wrapper for consistent JSON
-//! responses and the [`app_error_to_response`] helper that maps domain-level
-//! [`AcError`] variants to appropriate HTTP status codes.
-
-/// Conversion of domain errors to HTTP responses.
-pub mod error;
-/// Standardised API response wrapper.
-pub mod types;
+//! HTTP error handling and response types for the Agent Commons API.`r`n//!`r`n//! This crate provides the [`ApiResponse<T>`](types::ApiResponse) wrapper for consistent JSON`r`n//! responses and the [`app_error_to_response`](error::app_error_to_response) helper that maps domain-level`r`n//! [`AcError`] variants to appropriate HTTP status codes.`r`n`r`n/// Conversion of domain errors to HTTP responses.`r`npub mod error;`r`n/// Standardised API response wrapper.`r`npub mod types;`r`n/// Route definitions placeholder.`r`npub mod routes;

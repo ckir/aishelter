@@ -4,8 +4,8 @@
 //! connection limits.  The pool is the shared database handle used by all
 //! service layers in the Agent Commons system (§8).
 
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 
 /// Create a PostgreSQL connection pool.
 ///
@@ -31,9 +31,6 @@ pub async fn create_pool(
     max_connections: u32,
 ) -> anyhow::Result<PgPool> {
     // Configure the pool with the specified connection limit.
-    let pool = PgPoolOptions::new()
-        .max_connections(max_connections)
-        .connect(database_url)
-        .await?;
+    let pool = PgPoolOptions::new().max_connections(max_connections).connect(database_url).await?;
     Ok(pool)
 }

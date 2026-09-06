@@ -31,9 +31,7 @@ pub struct NonceStore {
 impl NonceStore {
     /// Create an empty nonce store.
     pub fn new() -> Self {
-        Self {
-            nonces: HashSet::new(),
-        }
+        Self { nonces: HashSet::new() }
     }
 
     /// Check whether a nonce has been used and record it if it is fresh.

@@ -7,9 +7,9 @@
 //! - `POST /{id}/ack` — mark a message as acknowledged (read)
 
 use axum::{
+    Json, Router,
     extract::{Path, Query, State},
     routing::{get, post},
-    Json, Router,
 };
 use serde::Deserialize;
 use sqlx::PgPool;

@@ -8,9 +8,9 @@
 //! - `POST /{id}/result` — submit a task result
 
 use axum::{
+    Json, Router,
     extract::{Path, State},
     routing::{get, post},
-    Json, Router,
 };
 use serde::Deserialize;
 use sqlx::PgPool;

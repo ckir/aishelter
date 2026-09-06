@@ -36,10 +36,7 @@ async fn main() -> anyhow::Result<()> {
     let settings = Settings::new().unwrap_or_else(|_| Settings::default());
 
     // Create database connection pool
-    let pool = PgPoolOptions::new()
-        .max_connections(10)
-        .connect(&settings.database_url)
-        .await?;
+    let pool = PgPoolOptions::new().max_connections(10).connect(&settings.database_url).await?;
 
     // Run pending database migrations
     sqlx::migrate!("../../migrations").run(&pool).await?;
@@ -50,10 +47,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Agent Commons starting on {}:{}", settings.host, settings.port);
 
     // Start the HTTP server
-    let listener = tokio::net::TcpListener::bind(format!("{}:{}", settings.host, settings.port)).await?;
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    let listener =
+        tokio::net::TcpListener::bind(format!("{}:{}", settings.host, settings.port)).await?;
+    axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await?;
 
     Ok(())
 }
