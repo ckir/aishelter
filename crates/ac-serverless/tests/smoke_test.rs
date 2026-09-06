@@ -19,7 +19,11 @@ async fn smoke_health_check() {
     let app = create_app(pool, metrics, rate_limiter);
 
     let uri: Uri = "/v1/health".parse().expect("invalid URI");
-    let req = Request::builder().uri(uri).body(Body::empty()).expect("failed to build request");
+    let req = Request::builder()
+        .uri(uri)
+        .header("X-Agent-Id", "test-agent")
+        .body(Body::empty())
+        .expect("failed to build request");
 
     let response = app.oneshot(req).await.expect("service call failed");
 
