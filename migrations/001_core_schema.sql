@@ -8,6 +8,8 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS agents (
     agent_id TEXT PRIMARY KEY,
     public_key TEXT NOT NULL UNIQUE,
+    profile_name TEXT,
+    profile_description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     status TEXT NOT NULL DEFAULT 'REGISTERED',
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -63,7 +65,7 @@ CREATE TABLE IF NOT EXISTS mailboxes (
 
 -- Messages
 CREATE TABLE IF NOT EXISTS messages (
-    message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id TEXT PRIMARY KEY,
     from_agent_id TEXT NOT NULL REFERENCES agents(agent_id),
     to_agent_id TEXT NOT NULL REFERENCES agents(agent_id),
     message_type TEXT NOT NULL,
@@ -76,15 +78,16 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- Tasks
 CREATE TABLE IF NOT EXISTS tasks (
-    task_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    requester_id TEXT NOT NULL REFERENCES agents(agent_id),
-    worker_id TEXT REFERENCES agents(agent_id),
+    task_id TEXT PRIMARY KEY,
+    requester_agent_id TEXT NOT NULL REFERENCES agents(agent_id),
+    assigned_agent_id TEXT REFERENCES agents(agent_id),
     capability TEXT NOT NULL,
     description TEXT NOT NULL,
     input JSONB NOT NULL,
     output JSONB,
-    constraints JSONB NOT NULL DEFAULT '{}',
-    verification JSONB NOT NULL DEFAULT '{"method": "peer", "required_validators": 2}',
+    constraints_deadline TIMESTAMPTZ,
+    verification_method TEXT NOT NULL,
+    required_validators INT NOT NULL DEFAULT 2,
     status TEXT NOT NULL DEFAULT 'CREATED',
     reward JSONB DEFAULT '{"amount": "0", "currency": "NONE"}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -94,7 +97,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- Task attempts (worker submissions)
 CREATE TABLE IF NOT EXISTS task_attempts (
     id BIGSERIAL PRIMARY KEY,
-    task_id UUID NOT NULL REFERENCES tasks(task_id),
+    task_id TEXT NOT NULL REFERENCES tasks(task_id),
     agent_id TEXT NOT NULL REFERENCES agents(agent_id),
     status TEXT NOT NULL DEFAULT 'SUBMITTED',
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -104,21 +107,22 @@ CREATE TABLE IF NOT EXISTS task_attempts (
 -- Task results
 CREATE TABLE IF NOT EXISTS task_results (
     id BIGSERIAL PRIMARY KEY,
-    task_id UUID NOT NULL REFERENCES tasks(task_id),
+    task_id TEXT NOT NULL REFERENCES tasks(task_id),
     agent_id TEXT NOT NULL REFERENCES agents(agent_id),
     result_data JSONB NOT NULL,
+    output_hash TEXT,
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Validations (validator votes)
 CREATE TABLE IF NOT EXISTS validations (
     id BIGSERIAL PRIMARY KEY,
-    task_id UUID NOT NULL REFERENCES tasks(task_id),
-    validator_id TEXT NOT NULL REFERENCES agents(agent_id),
-    vote TEXT NOT NULL CHECK (vote IN ('approve', 'reject')),
+    task_id TEXT NOT NULL REFERENCES tasks(task_id),
+    validator_agent_id TEXT NOT NULL REFERENCES agents(agent_id),
+    decision TEXT NOT NULL CHECK (decision IN ('approve', 'reject')),
     reasoning TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(task_id, validator_id)
+    UNIQUE(task_id, validator_agent_id)
 );
 
 -- Reputation events (append-only)
@@ -126,7 +130,7 @@ CREATE TABLE IF NOT EXISTS reputation_events (
     event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id TEXT NOT NULL REFERENCES agents(agent_id),
     event_type TEXT NOT NULL,
-    task_id UUID REFERENCES tasks(task_id),
+    task_id TEXT REFERENCES tasks(task_id),
     dimension TEXT NOT NULL,
     value DOUBLE PRECISION NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -144,13 +148,13 @@ CREATE TABLE IF NOT EXISTS reputation_snapshots (
     responsiveness DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     responsiveness_confidence DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     vwu_total BIGINT NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    snapshot_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Work receipts (VWUs)
 CREATE TABLE IF NOT EXISTS work_receipts (
     receipt_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id UUID NOT NULL REFERENCES tasks(task_id),
+    task_id TEXT NOT NULL REFERENCES tasks(task_id),
     agent_id TEXT NOT NULL REFERENCES agents(agent_id),
     input_hash TEXT NOT NULL,
     output_hash TEXT NOT NULL,
@@ -163,7 +167,7 @@ CREATE TABLE IF NOT EXISTS work_receipts (
 -- Disputes
 CREATE TABLE IF NOT EXISTS disputes (
     id BIGSERIAL PRIMARY KEY,
-    task_id UUID NOT NULL REFERENCES tasks(task_id),
+    task_id TEXT NOT NULL REFERENCES tasks(task_id),
     validator_a_id TEXT NOT NULL REFERENCES agents(agent_id),
     validator_b_id TEXT NOT NULL REFERENCES agents(agent_id),
     validator_a_vote TEXT NOT NULL,
