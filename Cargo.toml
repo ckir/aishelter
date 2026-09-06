@@ -18,6 +18,7 @@ members = [
     "crates/ac-reputation",
     "crates/ac-server",
     "crates/ac-metrics",
+    "crates/ac-runtime",
 ]
 resolver = "2"
 

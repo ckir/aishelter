@@ -1,0 +1,13 @@
+[package]
+name = "ac-runtime"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[dependencies]
+axum = { workspace = true }
+tower = { workspace = true }
+sqlx = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = "0.1"
