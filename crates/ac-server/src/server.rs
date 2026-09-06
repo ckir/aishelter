@@ -8,9 +8,13 @@
 //! The server also hosts the Scalar interactive API documentation at
 //! `/docs` and the raw OpenAPI specification at `/api/openapi.json`.
 
+use ac_metrics::readiness;
 use axum::{Router, routing::get};
+use http::header::HeaderName;
 use sqlx::PgPool;
-use tower_http::trace::TraceLayer;
+use tower_http::request_id::{MakeRequestUuid, SetRequestIdLayer};
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::Level;
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
@@ -28,13 +32,33 @@ pub fn create_app(pool: PgPool) -> Router {
     let app = Router::new()
         .route("/v1/health", get(health_check))
         .route("/v1/version", get(version_check))
+        .route(
+            "/v1/ready",
+            get({
+                let pool = pool.clone();
+                move || async move {
+                    if readiness::check(&pool).await {
+                        (axum::http::StatusCode::OK, "ready")
+                    } else {
+                        (axum::http::StatusCode::SERVICE_UNAVAILABLE, "not ready")
+                    }
+                }
+            }),
+        )
         .nest("/v1/agents", ac_registry::handler::routes(pool.clone()))
         .nest("/v1/discovery", ac_discovery::handler::routes(pool.clone()))
         .nest("/v1/messages", ac_mailbox::handler::routes(pool.clone()))
         .nest("/v1/tasks", ac_tasks::handler::routes(pool.clone()))
         .nest("/v1/validations", ac_validation::handler::routes(pool.clone()))
         .nest("/v1/agents", ac_reputation::handler::routes(pool.clone()))
-        .layer(TraceLayer::new_for_http());
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().include_headers(true).level(Level::INFO)),
+        )
+        .layer(SetRequestIdLayer::new(
+            HeaderName::from_static("x-request-id"),
+            MakeRequestUuid,
+        ));
 
     // Merge OpenAPI spec and Scalar docs
     let doc = ApiDoc::openapi();

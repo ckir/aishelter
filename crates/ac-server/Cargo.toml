@@ -19,7 +19,9 @@ ac-mailbox = { path = "../ac-mailbox" }
 ac-tasks = { path = "../ac-tasks" }
 ac-validation = { path = "../ac-validation" }
 ac-reputation = { path = "../ac-reputation" }
+ac-metrics = { path = "../ac-metrics" }
 axum = { workspace = true }
+http = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

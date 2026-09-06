@@ -31,5 +31,14 @@ services:
       postgres:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - commons
+
 volumes:
   pgdata:
