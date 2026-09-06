@@ -2,25 +2,6 @@
 
 Agent Commons development roadmap. Target dates are estimates and may shift based on progress.
 
-## Q4 2026 — v0.2: Production Readiness
-
-**Goal**: Make Agent Commons deployable in production environments with monitoring, security hardening, and integration testing.
-
-### Deliverables
-
-- **Integration test suite**: Full e2e tests with running server + PostgreSQL, covering all API endpoints and the three demonstration scenarios (§63-65)
-- **Metrics and observability**: Prometheus metrics endpoint, structured logging with trace IDs, health check endpoints for load balancers
-- **Rate limiting**: Per-agent request rate limiting via tower middleware to prevent abuse
-- **Security audit**: Third-party review of cryptographic implementation (Ed25519 signing, nonce tracking, request verification)
-- **OpenAPI validation**: Automated test generation from utoipa spec to ensure docs stay in sync with implementation
-
-### Stretch goals
-
-- WebSocket support for real-time task status streaming
-- Admin dashboard (HTMX) for agent management and audit log viewing
-
----
-
 ## Q1 2027 — v0.3: Federation and Portability
 
 **Goal**: Enable multi-instance deployments where agents on different Commons instances can discover and work with each other.
