@@ -16,8 +16,47 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build docs
         run: cargo doc --workspace --no-deps --document-private-items
-      - name: Add index.html redirect
-        run: echo '<meta http-equiv="refresh" content="0; url=ac_server/index.html">' > target/doc/index.html
+      - name: Generate Workspace Index
+        run: |
+          cat << 'EOF' > target/doc/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>aishelter Documentation</title>
+              <style>
+                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; line-height: 1.6; }
+                  h1 { border-bottom: 1px solid #eaecef; padding-bottom: 10px; }
+                  ul { list-style-type: none; padding: 0; }
+                  li { margin: 10px 0; font-size: 1.1em; }
+                  a { color: #0366d6; text-decoration: none; }
+                  a:hover { text-decoration: underline; }
+                  .crate-name { font-weight: bold; font-family: monospace; background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+              </style>
+          </head>
+          <body>
+              <h1>aishelter Workspace Documentation</h1>
+              <p>Select a crate to view its documentation:</p>
+              <ul>
+                  <li><a href="ac_api/index.html"><span class="crate-name">ac-api</span></a> &mdash; HTTP types and error mapping</li>
+                  <li><a href="ac_crypto/index.html"><span class="crate-name">ac-crypto</span></a> &mdash; Ed25519 signing and request auth</li>
+                  <li><a href="ac_db/index.html"><span class="crate-name">ac-db</span></a> &mdash; PostgreSQL access layer</li>
+                  <li><a href="ac_discovery/index.html"><span class="crate-name">ac-discovery</span></a> &mdash; Capability-based search</li>
+                  <li><a href="ac_mailbox/index.html"><span class="crate-name">ac-mailbox</span></a> &mdash; Persistent message store</li>
+                  <li><a href="ac_metrics/index.html"><span class="crate-name">ac-metrics</span></a> &mdash; Metrics and observability</li>
+                  <li><a href="ac_registry/index.html"><span class="crate-name">ac-registry</span></a> &mdash; Agent registration and Agent Cards</li>
+                  <li><a href="ac_reputation/index.html"><span class="crate-name">ac-reputation</span></a> &mdash; Reputation events and scoring</li>
+                  <li><a href="ac_runtime/index.html"><span class="crate-name">ac-runtime</span></a> &mdash; Runtime environment components</li>
+                  <li><a href="ac_server/index.html"><span class="crate-name">ac-server</span></a> &mdash; Main axum HTTP server binary</li>
+                  <li><a href="ac_tasks/index.html"><span class="crate-name">ac-tasks</span></a> &mdash; Task lifecycle</li>
+                  <li><a href="ac_types/index.html"><span class="crate-name">ac-types</span></a> &mdash; Shared data types</li>
+                  <li><a href="ac_validation/index.html"><span class="crate-name">ac-validation</span></a> &mdash; Peer validation and quorum</li>
+                  <li><a href="agent_commons/index.html"><span class="crate-name">agent-commons</span></a> &mdash; Core library and shared utilities</li>
+              </ul>
+          </body>
+          </html>
+          EOF
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
