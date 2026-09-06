@@ -57,12 +57,13 @@ impl ReputationService {
     }
 
     pub async fn get_reputation(&self, agent_id: &str) -> Result<ReputationSnapshot, AcError> {
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM agents WHERE agent_id = $1)")
-            .bind(agent_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| AcError::Database(e.to_string()))?;
-            
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM agents WHERE agent_id = $1)")
+                .bind(agent_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| AcError::Database(e.to_string()))?;
+
         if !exists {
             return Err(AcError::AgentNotFound(agent_id.to_string()));
         }
@@ -107,12 +108,13 @@ impl ReputationService {
     }
 
     pub async fn get_contributions(&self, agent_id: &str) -> Result<ContributionStats, AcError> {
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM agents WHERE agent_id = $1)")
-            .bind(agent_id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| AcError::Database(e.to_string()))?;
-            
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM agents WHERE agent_id = $1)")
+                .bind(agent_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| AcError::Database(e.to_string()))?;
+
         if !exists {
             return Err(AcError::AgentNotFound(agent_id.to_string()));
         }

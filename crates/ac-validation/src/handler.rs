@@ -97,7 +97,7 @@ pub async fn get_validations(
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = ValidationService::new(pool);
     let history = service.get_validations(&task_id).await?;
-    
+
     Ok(Json(serde_json::json!({
         "task_id": task_id,
         "validations": history,

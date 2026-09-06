@@ -64,7 +64,7 @@ pub async fn search(
     };
 
     let results = service.search_agents(&query).await?;
-    
+
     Ok(Json(serde_json::json!({
         "results": results,
         "count": results.len(),

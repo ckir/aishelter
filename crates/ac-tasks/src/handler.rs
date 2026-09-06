@@ -98,7 +98,7 @@ pub async fn create_task(
             required_validators,
         )
         .await?;
-        
+
     Ok(Json(serde_json::json!({ "task_id": task_id, "status": "CREATED" })))
 }
 

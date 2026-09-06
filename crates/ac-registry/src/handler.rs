@@ -141,7 +141,7 @@ pub async fn get_agent_handler(
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = RegistryService::new(pool);
     let agent = service.get_agent(&id).await?;
-    
+
     Ok(Json(serde_json::json!({
         "agent_id": agent.agent_id,
         "public_key": agent.public_key,
@@ -175,10 +175,8 @@ pub async fn update_card_handler(
     Json(req): Json<CardUpdateRequest>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = RegistryService::new(pool);
-    service
-        .update_card(&id, req.name.clone(), req.description.clone())
-        .await?;
-        
+    service.update_card(&id, req.name.clone(), req.description.clone()).await?;
+
     Ok(Json(serde_json::json!({
         "status": "updated",
         "protocol": "acp/1",

@@ -86,7 +86,7 @@ pub async fn send_message(
             expires_at,
         )
         .await?;
-        
+
     Ok(Json(serde_json::json!({ "status": "sent", "message_id": message_id })))
 }
 
@@ -107,10 +107,9 @@ pub async fn get_messages(
     Query(params): Query<GetMessagesQuery>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = MailboxService::new(pool);
-    let messages = service
-        .get_messages(&params.agent_id, params.unacknowledged.unwrap_or(true))
-        .await?;
-        
+    let messages =
+        service.get_messages(&params.agent_id, params.unacknowledged.unwrap_or(true)).await?;
+
     Ok(Json(serde_json::json!({
         "protocol": "acp/1",
         "messages": messages,

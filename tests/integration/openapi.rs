@@ -113,7 +113,8 @@ async fn openapi_error_response_schema() {
     let resp = app.post_json("/v1/agents/register", json!({})).await;
     // Must return a 4xx client error.
     assert!(TestApp::status(&resp).is_client_error(), "expected 4xx client error for empty body");
-    let body_bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.expect("failed to read body");
+    let body_bytes =
+        axum::body::to_bytes(resp.into_body(), usize::MAX).await.expect("failed to read body");
     if let Ok(body) = serde_json::from_slice::<serde_json::Value>(&body_bytes) {
         assert!(
             body.get("error").is_some() || body.get("message").is_some(),
