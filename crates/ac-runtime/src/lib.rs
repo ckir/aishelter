@@ -104,7 +104,7 @@ impl DbAdapter for PgDbAdapter {
 /// Each sub-module provides one or more `HttpAdapter` implementations
 /// gated behind a feature flag. Enable only the adapter(s) needed for
 /// the target deployment.
-#[cfg(feature = "lambda")]
+#[cfg(any(feature = "lambda", feature = "cloudrun"))]
 pub mod adapters;
 
 /// Re-export the AWS Lambda HTTP adapter when the `lambda` feature is enabled.
@@ -113,3 +113,10 @@ pub mod adapters;
 /// navigating through the adapters module path.
 #[cfg(feature = "lambda")]
 pub use adapters::lambda::LambdaHttpAdapter;
+
+/// Re-export the Google Cloud Run HTTP adapter when the `cloudrun` feature is enabled.
+///
+/// Allows users to write `use ac_runtime::CloudRunHttpAdapter` without
+/// navigating through the adapters module path.
+#[cfg(feature = "cloudrun")]
+pub use adapters::cloudrun::CloudRunHttpAdapter;

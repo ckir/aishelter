@@ -21,6 +21,7 @@ tracing = { workspace = true }
 
 [features]
 lambda = ["dep:lambda_http", "dep:lambda_runtime"]
+cloudrun = []
 
 [dev-dependencies]
 futures = "0.3"
