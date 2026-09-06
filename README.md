@@ -60,3 +60,6 @@ docker compose -f docker/docker-compose.yml up
 ```
 
 Target: OCI Ampere A1 (ARM64), 2 OCPU / 8 GB RAM.
+
+See [docs/deployment.md](docs/deployment.md) for cloud PostgreSQL, systemd,
+Docker, and OCI deployment guides.
