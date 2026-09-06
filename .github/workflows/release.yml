@@ -31,8 +31,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-      - name: Build binaries
+      - name: Build and stage binaries
         run: |
+          mkdir -p out
           IFS=',' read -ra BINS <<< "${{ matrix.bin-names }}"
           for bin in "${BINS[@]}"; do
             if [[ "$bin" == "ac-server-lambda" || "$bin" == "ac-server-cloudrun" || "$bin" == "ac-server-workers" ]]; then
@@ -41,11 +42,17 @@ jobs:
             else
               cargo build --release --target ${{ matrix.target }} -p ac-server --bin "$bin"
             fi
+            
+            if [[ "${{ matrix.runner }}" == "windows-latest" ]]; then
+              cp "target/${{ matrix.target }}/release/${bin}.exe" "out/"
+            else
+              cp "target/${{ matrix.target }}/release/${bin}" "out/"
+            fi
           done
         shell: bash
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.runner == 'windows-latest' && 'target/${{ matrix.target }}/release/*.exe' || 'target/${{ matrix.target }}/release/agent-commons target/${{ matrix.target }}/release/ac-server-*' }}
+          files: out/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
