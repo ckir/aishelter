@@ -36,24 +36,9 @@ impl TestApp {
     pub async fn setup() -> Self {
         let pool = if let Ok(dsn) = std::env::var("DATABASE_URL") {
             // Use the CI-provided postgres service when available.
-            // Create an isolated database for this test to avoid conflicts
-            // when multiple tests run in parallel via nextest.
-            use sqlx::Connection;
-            let test_db = format!("test_{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
-            let create_db = format!("CREATE DATABASE {}", test_db);
-            // Connect to the admin database to create the test db
-            let mut admin_conn =
-                sqlx::PgConnection::connect(&dsn).await.expect("failed to connect as admin");
-            sqlx::query(&create_db)
-                .execute(&mut admin_conn)
-                .await
-                .expect("failed to create test database");
-            // Build the test DSN
-            let mut test_dsn = dsn.clone();
-            if let Some(pos) = test_dsn.rfind('/') {
-                test_dsn = format!("{}/{}", &test_dsn[..pos], test_db);
-            }
-            PgPool::connect(&test_dsn).await.expect("failed to connect to test database")
+            // The migrations use CREATE TABLE IF NOT EXISTS, so they are idempotent
+            // and safe to run multiple times against the same database.
+            PgPool::connect(&dsn).await.expect("failed to connect to DATABASE_URL")
         } else {
             // Fall back to testcontainers for local dev
             let container =
