@@ -42,7 +42,8 @@ impl TestApp {
             let container =
                 Postgres::default().start().await.expect("failed to start postgres container");
             let host = container.get_host().await.expect("failed to get postgres host");
-            let port = container.get_host_port_ipv4(5432).await.expect("failed to get postgres port");
+            let port =
+                container.get_host_port_ipv4(5432).await.expect("failed to get postgres port");
             let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
             PgPool::connect(&dsn).await.expect("failed to connect to test postgres")
         };

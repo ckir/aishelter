@@ -55,11 +55,8 @@ async fn create_test_pool() -> PgPool {
 
 /// Run migrations from the workspace root.
 async fn run_migrations(pool: &PgPool) {
-    let migrations_path = std::env::current_dir()
-        .expect("no cwd")
-        .join("migrations");
-    let migrator = sqlx::migrate::Migrator::new(migrations_path)
-        .await
-        .expect("failed to create migrator");
+    let migrations_path = std::env::current_dir().expect("no cwd").join("migrations");
+    let migrator =
+        sqlx::migrate::Migrator::new(migrations_path).await.expect("failed to create migrator");
     migrator.run(pool).await.expect("failed to run migrations");
 }
