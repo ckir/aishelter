@@ -66,9 +66,9 @@ impl TestApp {
         };
 
         // Resolve migrations path relative to the workspace root.
-        // The integration test lives in tests/integration/, so workspace root is ../..
+        // For the [[test]] in the root Cargo.toml, CARGO_MANIFEST_DIR is the workspace root.
         let migrations_path =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../migrations");
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("migrations");
         let migrator = Migrator::new(migrations_path).await.expect("failed to create migrator");
         migrator.run(&pool).await.expect("failed to run migrations");
 
