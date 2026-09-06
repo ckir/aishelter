@@ -73,6 +73,7 @@ ac-metrics = { path = "crates/ac-metrics" }
 ed25519-dalek = { workspace = true }
 rand_core = "0.6"
 hex = "0.4"
+uuid = { workspace = true }
 
 [[test]]
 name = "integration"

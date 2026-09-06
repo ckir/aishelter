@@ -34,8 +34,21 @@ async fn smoke_health_check() {
 /// falling back to testcontainers for local dev.
 async fn create_test_pool() -> PgPool {
     if let Ok(dsn) = std::env::var("DATABASE_URL") {
-        // Use the CI-provided postgres service when available
-        let pool = PgPool::connect(&dsn).await.expect("failed to connect to DATABASE_URL");
+        // Use the CI-provided postgres service when available.
+        // Create an isolated database for this test to avoid conflicts.
+        use sqlx::Connection;
+        let admin_conn =
+            sqlx::PgConnection::connect(&dsn).await.expect("failed to connect as admin");
+        let test_db = format!("test_{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
+        sqlx::query(&format!("CREATE DATABASE {}", test_db))
+            .execute(&mut admin_conn)
+            .await
+            .expect("failed to create test database");
+        let mut test_dsn = dsn.clone();
+        if let Some(pos) = test_dsn.rfind('/') {
+            test_dsn = format!("{}/{}", &test_dsn[..pos], test_db);
+        }
+        let pool = PgPool::connect(&test_dsn).await.expect("failed to connect to test database");
         run_migrations(&pool).await;
         return pool;
     }

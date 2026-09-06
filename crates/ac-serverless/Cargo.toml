@@ -42,3 +42,4 @@ testcontainers = { workspace = true }
 testcontainers-modules = { workspace = true }
 http = { workspace = true }
 tower = { workspace = true }
+uuid = { workspace = true }
