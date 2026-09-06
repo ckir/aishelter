@@ -47,7 +47,13 @@ async fn shutdown_signal() {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{SignalKind, signal};
+        // SignalKind::TERM is available on Linux; on other Unix-like macOS,
+        // use the raw signal number 15 (SIGTERM).
+        #[cfg(target_os = "linux")]
         let mut sigterm = signal(SignalKind::TERM).expect("failed to install SIGTERM handler");
+        #[cfg(not(target_os = "linux"))]
+        let mut sigterm =
+            signal(SignalKind::from_raw(15)).expect("failed to install SIGTERM handler");
         let ctrl_c = tokio::signal::ctrl_c();
         tokio::select! {
             _ = sigterm.recv() => {
