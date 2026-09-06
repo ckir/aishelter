@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -126,3 +127,48 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: target/doc
           force_orphan: true
+
+  release:
+    name: Release binaries
+    runs-on: ${{ matrix.runner }}
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [fmt, clippy, test]
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin-names: "agent-commons,ac-server-lambda,ac-server-cloudrun,ac-server-workers"
+            artifact-prefix: linux-amd64
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin-names: "agent-commons"
+            artifact-prefix: windows-amd64
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            bin-names: "agent-commons,ac-server-cloudrun"
+            artifact-prefix: darwin-arm64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build binaries
+        run: |
+          IFS=',' read -ra BINS <<< "${{ matrix.bin-names }}"
+          for bin in "${BINS[@]}"; do
+            if [[ "$bin" == "ac-server-lambda" || "$bin" == "ac-server-cloudrun" || "$bin" == "ac-server-workers" ]]; then
+              feature="${bin#ac-server-}"
+              cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature" --bin "$bin"
+            else
+              cargo build --release --target ${{ matrix.target }} -p ac-server --bin "$bin"
+            fi
+          done
+        shell: bash
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/${{ matrix.target }}/release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
