@@ -12,8 +12,6 @@
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::StatusCode,
-    response::IntoResponse,
     routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
@@ -103,35 +101,22 @@ pub struct CardUpdateRequest {
 pub async fn register_handler(
     State(pool): State<PgPool>,
     Json(req): Json<RegisterRequest>,
-) -> impl IntoResponse {
-    // Extract optional profile fields from the request.
-    let profile_name = req.profile.as_ref().and_then(|p| p.name.clone());
-    let profile_description = req.profile.as_ref().and_then(|p| p.description.clone());
-
-    // Delegate to the service layer for database operations.
+) -> Result<Json<RegisterResponse>, ac_types::error::AcError> {
     let service = RegistryService::new(pool);
-    match service
-        .register_agent(&req.agent_id, &req.public_key, profile_name, profile_description)
-        .await
-    {
-        Ok(agent) => (
-            StatusCode::OK,
-            Json(RegisterResponse {
-                agent_id: agent.agent_id,
-                status: agent.status,
-                protocol: "acp/1".to_string(),
-            }),
+    let agent = service
+        .register_agent(
+            &req.agent_id,
+            &req.public_key,
+            req.profile.as_ref().and_then(|p| p.name.clone()),
+            req.profile.as_ref().and_then(|p| p.description.clone()),
         )
-            .into_response(),
-        Err(e) => (
-            StatusCode::CONFLICT,
-            Json(serde_json::json!({
-                "error": e.to_string(),
-                "protocol": "acp/1"
-            })),
-        )
-            .into_response(),
-    }
+        .await?;
+
+    Ok(Json(RegisterResponse {
+        agent_id: agent.agent_id,
+        status: agent.status,
+        protocol: "acp/1".to_string(),
+    }))
 }
 
 /// Get agent details by ID.
@@ -153,31 +138,18 @@ pub async fn register_handler(
 pub async fn get_agent_handler(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
-) -> impl IntoResponse {
-    // Delegate to the service layer for database lookup.
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = RegistryService::new(pool);
-    match service.get_agent(&id).await {
-        Ok(agent) => (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "agent_id": agent.agent_id,
-                "public_key": agent.public_key,
-                "profile_name": agent.profile_name,
-                "profile_description": agent.profile_description,
-                "status": agent.status,
-                "protocol": "acp/1",
-            })),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "error": e.to_string(),
-                "protocol": "acp/1"
-            })),
-        )
-            .into_response(),
-    }
+    let agent = service.get_agent(&id).await?;
+    
+    Ok(Json(serde_json::json!({
+        "agent_id": agent.agent_id,
+        "public_key": agent.public_key,
+        "profile_name": agent.profile_name,
+        "profile_description": agent.profile_description,
+        "status": agent.status,
+        "protocol": "acp/1",
+    })))
 }
 
 /// Update agent card (name and description).
@@ -193,7 +165,7 @@ pub async fn get_agent_handler(
         ("id" = String, Path, description = "Agent ID"),
     ),
     responses(
-        (status = 200, description = "Card updated"),
+        (status = 200, description = "Agent card updated", body = serde_json::Value),
         (status = 404, description = "Agent not found"),
     ),
 )]
@@ -201,25 +173,14 @@ pub async fn update_card_handler(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
     Json(req): Json<CardUpdateRequest>,
-) -> impl IntoResponse {
-    // Delegate to the service layer for the UPDATE query.
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = RegistryService::new(pool);
-    match service.update_card(&id, req.name, req.description).await {
-        Ok(()) => (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "status": "updated",
-                "protocol": "acp/1"
-            })),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "error": e.to_string(),
-                "protocol": "acp/1"
-            })),
-        )
-            .into_response(),
-    }
+    service
+        .update_card(&id, req.name.clone(), req.description.clone())
+        .await?;
+        
+    Ok(Json(serde_json::json!({
+        "status": "updated",
+        "protocol": "acp/1",
+    })))
 }

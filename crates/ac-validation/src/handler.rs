@@ -64,30 +64,22 @@ pub async fn validate_task(
     State(pool): State<PgPool>,
     Path(task_id): Path<String>,
     Json(req): Json<ValidateRequest>,
-) -> Json<ValidateResponse> {
-    // Create the validation service.
+) -> Result<Json<ValidateResponse>, ac_types::error::AcError> {
     let service = ValidationService::new(pool);
-    // Submit the vote and get the quorum decision.
     let decision = service
         .validate_task(&task_id, &req.validator_id, &req.decision, req.reasoning.as_deref())
-        .await;
+        .await?;
 
-    // Map the enum variant to a human-readable string.
     let decision_str = match decision {
-        Ok(QuorumDecision::Verified) => "verified",
-        Ok(QuorumDecision::Rejected) => "rejected",
-        Ok(QuorumDecision::Disputed) => "disputed",
-        Ok(QuorumDecision::Pending) => "pending",
-        Err(e) => return Json(ValidateResponse { decision: format!("error: {}", e) }),
+        QuorumDecision::Verified => "verified",
+        QuorumDecision::Rejected => "rejected",
+        QuorumDecision::Disputed => "disputed",
+        QuorumDecision::Pending => "pending",
     };
 
-    Json(ValidateResponse { decision: decision_str.to_string() })
+    Ok(Json(ValidateResponse { decision: decision_str.to_string() }))
 }
 
-/// Get all validation decisions for a task.
-///
-/// Returns the full history of votes cast by validators, including
-/// their reasoning.  Useful for auditing disputes (§22).
 #[utoipa::path(
     get,
     path = "/v1/validations/{task_id}",
@@ -96,17 +88,19 @@ pub async fn validate_task(
         ("task_id" = String, Path, description = "Task ID"),
     ),
     responses(
-        (status = 200, description = "Validation decisions", body = serde_json::Value),
-        (status = 404, description = "Task not found"),
+        (status = 200, description = "Validation history", body = serde_json::Value),
     ),
 )]
 pub async fn get_validations(
     State(pool): State<PgPool>,
     Path(task_id): Path<String>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = ValidationService::new(pool);
-    match service.get_validations(&task_id).await {
-        Ok(validations) => Json(serde_json::json!({ "data": validations })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    let history = service.get_validations(&task_id).await?;
+    
+    Ok(Json(serde_json::json!({
+        "task_id": task_id,
+        "validations": history,
+        "protocol": "acp/1",
+    })))
 }

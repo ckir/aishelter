@@ -73,3 +73,16 @@ pub enum AcError {
         String,
     ),
 }
+
+impl axum::response::IntoResponse for AcError {
+    fn into_response(self) -> axum::response::Response {
+        let status = match &self {
+            AcError::AgentNotFound(_) | AcError::TaskNotFound(_) => axum::http::StatusCode::NOT_FOUND,
+            AcError::DuplicateRegistration(_) => axum::http::StatusCode::CONFLICT,
+            AcError::InvalidTaskTransition { .. } => axum::http::StatusCode::BAD_REQUEST,
+            AcError::InvalidSignature(_) | AcError::InsufficientValidators { .. } => axum::http::StatusCode::BAD_REQUEST,
+            _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        (status, axum::Json(serde_json::json!({ "error": self.to_string() }))).into_response()
+    }
+}

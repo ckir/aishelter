@@ -59,6 +59,7 @@ pub async fn get_reputation(
 ) -> Result<Json<ReputationResponse>, (StatusCode, String)> {
     let service = ReputationService::new(state.pool);
     let snapshot = service.get_reputation(&agent_id).await.map_err(|e| match e {
+        AcError::AgentNotFound(_) => (StatusCode::NOT_FOUND, e.to_string()),
         AcError::Database(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
         other => (StatusCode::INTERNAL_SERVER_ERROR, other.to_string()),
     })?;

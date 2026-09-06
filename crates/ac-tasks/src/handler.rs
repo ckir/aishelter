@@ -82,13 +82,12 @@ pub struct SubmitResultRequest {
 pub async fn create_task(
     State(pool): State<PgPool>,
     Json(req): Json<CreateTaskRequest>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = TaskService::new(pool);
-    // Apply sensible defaults when the caller omits them.
     let verification_method = req.verification_method.unwrap_or_else(|| "peer".to_string());
     let required_validators = req.required_validators.unwrap_or(2);
 
-    match service
+    let task_id = service
         .create_task(
             &req.requester,
             &req.capability,
@@ -98,14 +97,11 @@ pub async fn create_task(
             &verification_method,
             required_validators,
         )
-        .await
-    {
-        Ok(task_id) => Json(serde_json::json!({ "task_id": task_id, "status": "CREATED" })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+        .await?;
+        
+    Ok(Json(serde_json::json!({ "task_id": task_id, "status": "CREATED" })))
 }
 
-/// Retrieve full task details by ID.
 #[utoipa::path(
     get,
     path = "/v1/tasks/{id}",
@@ -121,18 +117,12 @@ pub async fn create_task(
 pub async fn get_task(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = TaskService::new(pool);
-    match service.get_task(&id).await {
-        Ok(task) => Json(serde_json::json!({ "data": task })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    let task = service.get_task(&id).await?;
+    Ok(Json(serde_json::json!({ "data": task })))
 }
 
-/// Accept a task offer.
-///
-/// Transitions the task from `CREATED` or `OFFERED` to `ACCEPTED`
-/// and records the accepting agent as the assignee (§18).
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/accept",
@@ -151,17 +141,12 @@ pub async fn accept_task(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
     Json(req): Json<TaskActionRequest>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = TaskService::new(pool);
-    match service.accept_task(&id, &req.agent_id).await {
-        Ok(()) => Json(serde_json::json!({ "status": "accepted" })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    service.accept_task(&id, &req.agent_id).await?;
+    Ok(Json(serde_json::json!({ "status": "accepted" })))
 }
 
-/// Reject a task offer.
-///
-/// Only valid when the task is in the `OFFERED` state (§18).
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/reject",
@@ -180,19 +165,12 @@ pub async fn reject_task(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
     Json(req): Json<TaskActionRequest>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = TaskService::new(pool);
-    match service.reject_task(&id, &req.agent_id).await {
-        Ok(()) => Json(serde_json::json!({ "status": "rejected" })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    service.reject_task(&id, &req.agent_id).await?;
+    Ok(Json(serde_json::json!({ "status": "rejected" })))
 }
 
-/// Submit a task result for validation.
-///
-/// The executor provides the result JSON and a SHA-256 hash of the
-/// output.  The task transitions to `SUBMITTED` and a row is inserted
-/// into the `task_results` table (§20).
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/result",
@@ -211,10 +189,8 @@ pub async fn submit_result(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
     Json(req): Json<SubmitResultRequest>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = TaskService::new(pool);
-    match service.submit_result(&id, &req.agent_id, req.result, &req.output_hash).await {
-        Ok(()) => Json(serde_json::json!({ "status": "submitted" })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    service.submit_result(&id, &req.agent_id, req.result, &req.output_hash).await?;
+    Ok(Json(serde_json::json!({ "status": "submitted" })))
 }

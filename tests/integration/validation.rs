@@ -65,12 +65,13 @@ async fn validate_idempotent_or_conflict() {
             }),
         )
         .await;
-    assert_eq!(TestApp::status(&task_resp), StatusCode::OK);
+    let task_body: serde_json::Value = TestApp::json_body(task_resp).await;
+    let task_id = task_body["task_id"].as_str().unwrap();
 
     // First validation.
     let r1 = app
         .post_json(
-            "/v1/validations/validate",
+            &format!("/v1/validations/{}/validate", task_id),
             json!({
                 "validator_id": agent,
                 "decision": "approve",
@@ -86,7 +87,7 @@ async fn validate_idempotent_or_conflict() {
     // Second validation by same agent — should be idempotent (200) or conflict (409).
     let r2 = app
         .post_json(
-            "/v1/validations/validate",
+            &format!("/v1/validations/{}/validate", task_id),
             json!({
                 "validator_id": agent,
                 "decision": "approve",

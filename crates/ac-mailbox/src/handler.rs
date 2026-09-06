@@ -69,7 +69,7 @@ pub struct SendMessageRequest {
 pub async fn send_message(
     State(pool): State<PgPool>,
     Json(req): Json<SendMessageRequest>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = MailboxService::new(pool);
     // Parse the optional RFC 3339 expiry into a DateTime<Utc>.
     let expires_at = req
@@ -77,7 +77,7 @@ pub async fn send_message(
         .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
         .map(|dt| dt.with_timezone(&chrono::Utc));
 
-    match service
+    service
         .send_message(
             &req.from_agent_id,
             &req.to_agent_id,
@@ -85,74 +85,65 @@ pub async fn send_message(
             req.payload,
             expires_at,
         )
-        .await
-    {
-        Ok(_) => Json(serde_json::json!({ "status": "sent" })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+        .await?;
+        
+    Ok(Json(serde_json::json!({ "status": "sent" })))
 }
 
-/// Retrieve messages for an agent's mailbox.
-///
-/// Supports filtering by acknowledgement status via the `unacknowledged`
-/// query parameter.  Expired messages are always excluded (§15).
 #[utoipa::path(
     get,
     path = "/v1/messages",
     tag = "mailbox",
-    params(GetMessagesQuery),
+    params(
+        ("agent_id" = String, Query, description = "Agent ID to fetch messages for"),
+        ("unacknowledged" = Option<bool>, Query, description = "Filter for unacknowledged messages"),
+    ),
     responses(
-        (status = 200, description = "Messages retrieved", body = serde_json::Value),
+        (status = 200, description = "Messages list", body = serde_json::Value),
     ),
 )]
 pub async fn get_messages(
     State(pool): State<PgPool>,
-    Query(query): Query<GetMessagesQuery>,
-) -> Json<serde_json::Value> {
+    Query(params): Query<GetMessagesQuery>,
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = MailboxService::new(pool);
-    // Default to returning all (non-expired) messages.
-    let only_unacknowledged = query.unacknowledged.unwrap_or(false);
-
-    match service.get_messages(&query.agent_id, only_unacknowledged).await {
-        Ok(msgs) => Json(serde_json::json!({ "data": msgs.len(), "messages": msgs })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    let messages = service
+        .get_messages(&params.agent_id, params.unacknowledged.unwrap_or(true))
+        .await?;
+        
+    Ok(Json(serde_json::json!({
+        "protocol": "acp/1",
+        "messages": messages,
+    })))
 }
 
-/// Retrieve a single message by its UUID.
 #[utoipa::path(
     get,
     path = "/v1/messages/{id}",
     tag = "mailbox",
     params(
-        ("id" = String, Path, description = "Message UUID"),
+        ("id" = String, Path, description = "Message ID"),
     ),
     responses(
-        (status = 200, description = "Message retrieved", body = serde_json::Value),
+        (status = 200, description = "Message details", body = serde_json::Value),
         (status = 404, description = "Message not found"),
     ),
 )]
 pub async fn get_message(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = MailboxService::new(pool);
-    match service.get_message(&id).await {
-        Ok(msg) => Json(serde_json::json!({ "data": msg })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    let msg = service.get_message(&id).await?;
+    Ok(Json(serde_json::json!({ "data": msg })))
 }
 
-/// Mark a message as acknowledged (read).
-///
-/// Sets `acknowledged = true` and records the current timestamp in
-/// `acknowledged_at` (§15).
 #[utoipa::path(
     post,
     path = "/v1/messages/{id}/ack",
     tag = "mailbox",
     params(
-        ("id" = String, Path, description = "Message UUID"),
+        ("id" = String, Path, description = "Message ID"),
     ),
     responses(
         (status = 200, description = "Message acknowledged", body = serde_json::Value),
@@ -162,10 +153,8 @@ pub async fn get_message(
 pub async fn acknowledge_message(
     State(pool): State<PgPool>,
     Path(id): Path<String>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = MailboxService::new(pool);
-    match service.acknowledge_message(&id).await {
-        Ok(_) => Json(serde_json::json!({ "status": "acknowledged" })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    service.acknowledge_message(&id).await?;
+    Ok(Json(serde_json::json!({ "status": "acknowledged" })))
 }

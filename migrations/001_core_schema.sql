@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS mailboxes (
 
 -- Messages
 CREATE TABLE IF NOT EXISTS messages (
-    message_id TEXT PRIMARY KEY,
+    message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     from_agent_id TEXT NOT NULL REFERENCES agents(agent_id),
     to_agent_id TEXT NOT NULL REFERENCES agents(agent_id),
     message_type TEXT NOT NULL,

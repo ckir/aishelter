@@ -102,7 +102,7 @@ impl DiscoveryService {
                 JOIN agent_capabilities ac ON a.agent_id = ac.agent_id
                 LEFT JOIN reputation_snapshots rs ON a.agent_id = rs.agent_id
                 WHERE ac.capability_name = $1
-                  AND a.status = ANY($2)
+                  AND a.status = $2
                 ORDER BY rs.reliability DESC NULLS LAST
                 LIMIT $3
                 "#,
@@ -127,7 +127,7 @@ impl DiscoveryService {
                 FROM agents a
                 JOIN agent_capabilities ac ON a.agent_id = ac.agent_id
                 LEFT JOIN reputation_snapshots rs ON a.agent_id = rs.agent_id
-                WHERE a.status = ANY($1)
+                WHERE a.status = $1
                 ORDER BY rs.reliability DESC NULLS LAST
                 LIMIT $2
                 "#,

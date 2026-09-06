@@ -53,8 +53,7 @@ pub struct SearchParams {
 pub async fn search(
     State(pool): State<PgPool>,
     Query(params): Query<SearchParams>,
-) -> Json<serde_json::Value> {
-    // Build the internal search query from the HTTP parameters.
+) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
     let service = DiscoveryService::new(pool);
     let query = SearchQuery {
         capability: params.capability,
@@ -64,14 +63,13 @@ pub async fn search(
         limit: params.limit.unwrap_or(20),
     };
 
-    match service.search_agents(&query).await {
-        Ok(results) => Json(serde_json::json!({
-            "results": results,
-            "count": results.len(),
-            "protocol": "acp/1",
-        })),
-        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
-    }
+    let results = service.search_agents(&query).await?;
+    
+    Ok(Json(serde_json::json!({
+        "results": results,
+        "count": results.len(),
+        "protocol": "acp/1",
+    })))
 }
 
 /// Build the discovery router with the search route mounted.
