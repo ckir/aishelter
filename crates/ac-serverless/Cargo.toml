@@ -33,3 +33,12 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+axum = { workspace = true }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+testcontainers = { workspace = true }
+testcontainers-modules = { workspace = true }
+http = { workspace = true }
+tower = { workspace = true }
