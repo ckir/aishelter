@@ -8,11 +8,14 @@
 //! # Modules
 //!
 //! - [`config`] — Runtime settings loaded from environment variables.
+//! - [`middleware`] — HTTP middleware modules (rate limiting, metrics).
 //! - [`routes`] — OpenAPI documentation and Scalar UI endpoint.
 //! - [`server`] — Router construction and health/version handlers.
 
 /// Server configuration management.
 pub mod config;
+/// HTTP middleware modules.
+pub mod middleware;
 /// OpenAPI documentation and Scalar UI.
 pub mod routes;
 /// Axum HTTP server construction and routing.

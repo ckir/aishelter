@@ -21,6 +21,12 @@ pub struct Settings {
     pub host: String,
     /// HTTP listen port (default: `3000`).
     pub port: u16,
+    /// Global rate limit: max requests per window.
+    pub rate_limit_global: u64,
+    /// Per-agent rate limit: max requests per window.
+    pub rate_limit_per_agent: u64,
+    /// Rate limit window in seconds.
+    pub rate_limit_window_secs: u64,
 }
 
 impl Settings {
@@ -48,6 +54,9 @@ impl Default for Settings {
             database_url: "postgresql://localhost/aishelter".to_string(),
             host: "0.0.0.0".to_string(),
             port: 3000,
+            rate_limit_global: 1000,
+            rate_limit_per_agent: 100,
+            rate_limit_window_secs: 60,
         }
     }
 }

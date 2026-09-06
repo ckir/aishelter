@@ -8,6 +8,7 @@
 //! The server also hosts the Scalar interactive API documentation at
 //! `/docs` and the raw OpenAPI specification at `/api/openapi.json`.
 
+use crate::middleware::rate_limit::{RateLimiter, rate_limit as rate_limit_mw};
 use ac_metrics::middleware::record_metrics;
 use ac_metrics::readiness;
 use ac_metrics::registry::Metrics;
@@ -29,9 +30,10 @@ use crate::routes::ApiDoc;
 /// - Feature sub-routes under `/v1/{feature}`
 /// - HTTP request tracing via `tower-http`
 /// - Metrics middleware recording request counts and durations
+/// - Rate limiting with global and per-agent token buckets
 /// - OpenAPI JSON at `/api/openapi.json`
 /// - Interactive Scalar UI at `/docs`
-pub fn create_app(pool: PgPool, metrics: Metrics) -> Router {
+pub fn create_app(pool: PgPool, metrics: Metrics, rate_limiter: RateLimiter) -> Router {
     let app = Router::new()
         .route("/v1/health", get(health_check))
         .route("/v1/version", get(version_check))
@@ -57,6 +59,8 @@ pub fn create_app(pool: PgPool, metrics: Metrics) -> Router {
         .nest("/v1/agents", ac_reputation::handler::routes(pool.clone()))
         .layer(Extension(metrics.clone()))
         .layer(from_fn(record_metrics))
+        .layer(Extension(rate_limiter))
+        .layer(from_fn(rate_limit_mw))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().include_headers(true).level(Level::INFO)),

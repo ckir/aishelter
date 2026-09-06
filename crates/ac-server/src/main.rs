@@ -14,6 +14,7 @@
 
 use ac_metrics::registry::Metrics;
 use ac_server::config::Settings;
+use ac_server::middleware::rate_limit::RateLimiter;
 use ac_server::server::create_app;
 use sqlx::postgres::PgPoolOptions;
 
@@ -45,8 +46,15 @@ async fn main() -> anyhow::Result<()> {
     // Create metrics registry
     let metrics = Metrics::new();
 
+    // Create rate limiter
+    let rate_limiter = RateLimiter::new(
+        settings.rate_limit_global,
+        settings.rate_limit_per_agent,
+        settings.rate_limit_window_secs,
+    );
+
     // Build the application router
-    let app = create_app(pool, metrics);
+    let app = create_app(pool, metrics, rate_limiter);
 
     tracing::info!("Agent Commons starting on {}:{}", settings.host, settings.port);
 
