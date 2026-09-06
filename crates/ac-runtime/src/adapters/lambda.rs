@@ -180,7 +180,7 @@ impl HttpAdapter for LambdaHttpAdapter {
         // Run the Lambda runtime on a blocking thread. The lambda_http::run
         // future is not Send due to internal pin! usage, so we isolate it on
         // a dedicated thread via spawn_blocking.
-        let result = tokio::task::spawn_blocking(move || {
+        tokio::task::spawn_blocking(move || {
             // Build a fresh tokio runtime inside the spawned thread so that
             // lambda_http::run has a runtime context to drive its timers.
             let rt = tokio::runtime::Runtime::new()
@@ -198,7 +198,7 @@ impl HttpAdapter for LambdaHttpAdapter {
         .await
         .map_err(|e| anyhow::anyhow!("spawn_blocking panicked: {}", e))??;
 
-        Ok(result)
+        Ok(())
     }
 }
 
