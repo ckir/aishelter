@@ -1,5 +1,5 @@
 //! Smoke test: verifies that the serverless binaries compile and
-//! that the Cloud Run adapter's router responds to health checks.
+//! that the app router responds to health checks.
 
 use ac_metrics::registry::Metrics;
 use ac_server::middleware::rate_limit::RateLimiter;
@@ -7,13 +7,11 @@ use ac_server::server::create_app;
 use axum::body::Body;
 use axum::http::{Request, Uri};
 use sqlx::PgPool;
-use testcontainers::runners::AsyncRunner;
-use testcontainers_modules::postgres::Postgres;
 use tower::ServiceExt;
 
 /// Build the app router and test the health endpoint.
 #[tokio::test]
-async fn cloudrun_health_check() {
+async fn smoke_health_check() {
     let pool = create_test_pool().await;
     let metrics = Metrics::new();
     let rate_limiter = RateLimiter::new(1000, 100, 60);
@@ -32,12 +30,36 @@ async fn cloudrun_health_check() {
     assert_eq!(body, "ok");
 }
 
+/// Connect to postgres using the CI-provided DATABASE_URL env var,
+/// falling back to testcontainers for local dev.
 async fn create_test_pool() -> PgPool {
-    let container = Postgres::default().start().await.expect("failed to start postgres container");
+    if let Ok(dsn) = std::env::var("DATABASE_URL") {
+        // Use the CI-provided postgres service when available
+        let pool = PgPool::connect(&dsn).await.expect("failed to connect to DATABASE_URL");
+        run_migrations(&pool).await;
+        return pool;
+    }
 
-    let host = container.get_host().await.expect("failed to get postgres host");
-    let port = container.get_host_port_ipv4(5432).await.expect("failed to get postgres port");
+    // Local dev: use testcontainers
+    use testcontainers::runners::AsyncRunner;
+    use testcontainers_modules::postgres::Postgres;
 
+    let container = Postgres::default().start().await.expect("failed to start postgres");
+    let host = container.get_host().await.expect("failed to get host");
+    let port = container.get_host_port_ipv4(5432).await.expect("failed to get port");
     let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    PgPool::connect(&dsn).await.expect("failed to connect to test postgres")
+    let pool = PgPool::connect(&dsn).await.expect("failed to connect");
+    run_migrations(&pool).await;
+    pool
+}
+
+/// Run migrations from the workspace root.
+async fn run_migrations(pool: &PgPool) {
+    let migrations_path = std::env::current_dir()
+        .expect("no cwd")
+        .join("migrations");
+    let migrator = sqlx::migrate::Migrator::new(migrations_path)
+        .await
+        .expect("failed to create migrator");
+    migrator.run(pool).await.expect("failed to run migrations");
 }

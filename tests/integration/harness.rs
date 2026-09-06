@@ -34,14 +34,18 @@ impl TestApp {
     /// Panics if the test container cannot be started, the pool cannot be
     /// created, migrations fail, or the app router cannot be built.
     pub async fn setup() -> Self {
-        let container =
-            Postgres::default().start().await.expect("failed to start postgres container");
-
-        let host = container.get_host().await.expect("failed to get postgres host");
-        let port = container.get_host_port_ipv4(5432).await.expect("failed to get postgres port");
-
-        let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-        let pool = sqlx::PgPool::connect(&dsn).await.expect("failed to connect to test postgres");
+        let pool = if let Ok(dsn) = std::env::var("DATABASE_URL") {
+            // Use the CI-provided postgres service when available
+            PgPool::connect(&dsn).await.expect("failed to connect to DATABASE_URL")
+        } else {
+            // Fall back to testcontainers for local dev
+            let container =
+                Postgres::default().start().await.expect("failed to start postgres container");
+            let host = container.get_host().await.expect("failed to get postgres host");
+            let port = container.get_host_port_ipv4(5432).await.expect("failed to get postgres port");
+            let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
+            PgPool::connect(&dsn).await.expect("failed to connect to test postgres")
+        };
 
         // Resolve migrations path relative to the workspace root.
         // The [[test]] target's crate root is tests/integration/, so we go up two levels.
