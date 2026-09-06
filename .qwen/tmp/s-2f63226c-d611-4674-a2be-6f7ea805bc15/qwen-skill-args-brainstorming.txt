@@ -1,1 +1,0 @@
-Convert the "Technical Specification v0.1.md" to a real project
