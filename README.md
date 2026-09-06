@@ -63,3 +63,7 @@ Target: OCI Ampere A1 (ARM64), 2 OCPU / 8 GB RAM.
 
 See [docs/deployment.md](docs/deployment.md) for cloud PostgreSQL, systemd,
 Docker, and OCI deployment guides.
+
+## Documentation
+
+API and internal documentation is available at: [https://ckir.github.io/aishelter/](https://ckir.github.io/aishelter/)

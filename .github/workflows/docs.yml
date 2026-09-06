@@ -16,6 +16,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build docs
         run: cargo doc --workspace --no-deps --document-private-items
+      - name: Add index.html redirect
+        run: echo '<meta http-equiv="refresh" content="0; url=ac_server/index.html">' > target/doc/index.html
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
