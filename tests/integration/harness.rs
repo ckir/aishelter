@@ -12,6 +12,9 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
 use tower::ServiceExt;
 
+use ac_metrics::registry::Metrics;
+use ac_server::middleware::rate_limit::RateLimiter;
+
 /// In-process test application wrapping an axum [`Router`].
 ///
 /// A `TestApp` owns a PostgreSQL test container and a connection pool.
@@ -47,7 +50,9 @@ impl TestApp {
         let migrator = Migrator::new(migrations_path).await.expect("failed to create migrator");
         migrator.run(&pool).await.expect("failed to run migrations");
 
-        let app = ac_server::server::create_app(pool.clone());
+        let metrics = Metrics::new();
+        let rate_limiter = RateLimiter::new(1000, 100, 60);
+        let app = ac_server::server::create_app(pool.clone(), metrics, rate_limiter);
 
         Self { pool, app }
     }
@@ -109,6 +114,23 @@ impl TestApp {
             .uri(uri)
             .header(header::CONTENT_TYPE, "application/json")
             .body(Body::from(json))
+            .expect("failed to build request");
+        self.request(req).await
+    }
+
+    /// Issue a POST request with no body to the given path.
+    ///
+    /// Used for acknowledgement endpoints that do not require a request body.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the URI cannot be parsed or the service call fails.
+    pub async fn post(&self, path: &str) -> Response<Body> {
+        let uri: Uri = path.parse().expect("invalid URI");
+        let req = Request::builder()
+            .method("POST")
+            .uri(uri)
+            .body(Body::empty())
             .expect("failed to build request");
         self.request(req).await
     }

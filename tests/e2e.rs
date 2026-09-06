@@ -278,6 +278,27 @@ async fn adversarial_acknowledge_nonexistent_message() {
     assert!(resp.status().is_client_error(), "ack nonexistent message should be 4xx");
 }
 
+// ─── Rate limiting ───────────────────────────────────────────────────────────
+
+#[tokio::test]
+#[ignore = "requires running server"]
+async fn adversarial_rate_limit_exceeded() {
+    let c = test_client();
+    let b = base_url();
+
+    // Send requests with agent ID header until rate limited.
+    // Default global limit is 1000/60s; sending 1050 requests should trigger it.
+    let mut rate_limited = false;
+    for _ in 0..1050 {
+        let resp = c.get(format!("{}/v1/health", b)).send().await.unwrap();
+        if resp.status() == StatusCode::TOO_MANY_REQUESTS {
+            rate_limited = true;
+            break;
+        }
+    }
+    assert!(rate_limited, "should hit rate limit after ~1000 requests");
+}
+
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
 async fn reg(c: &Client, b: &str, id: &str, pk: &str) -> serde_json::Value {
