@@ -9,9 +9,32 @@ jobs:
   docker:
     name: Docker build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
       - name: Build Docker image
         run: docker build -f docker/Dockerfile -t aishelter:ci .
       - name: Verify image
         run: docker image inspect aishelter:ci --format '{{.Size}}'
+      - name: Log in to GitHub Container Registry
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag and push image
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          # Extract tag name from ref
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          # Downcase repository name for docker
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          docker tag aishelter:ci ghcr.io/${REPO}:${TAG_NAME}
+          docker tag aishelter:ci ghcr.io/${REPO}:latest
+          
+          docker push ghcr.io/${REPO}:${TAG_NAME}
+          docker push ghcr.io/${REPO}:latest
