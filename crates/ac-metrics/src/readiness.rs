@@ -11,7 +11,5 @@ use std::time::Duration;
 /// Returns `true` if a connection can be acquired within 1 second,
 /// `false` otherwise.
 pub async fn check(pool: &PgPool) -> bool {
-    tokio::time::timeout(Duration::from_secs(1), pool.acquire())
-        .await
-        .is_ok()
+    tokio::time::timeout(Duration::from_secs(1), pool.acquire()).await.is_ok()
 }

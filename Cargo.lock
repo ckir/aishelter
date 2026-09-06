@@ -139,6 +139,7 @@ dependencies = [
  "ac-db",
  "ac-discovery",
  "ac-mailbox",
+ "ac-metrics",
  "ac-registry",
  "ac-reputation",
  "ac-tasks",
@@ -150,6 +151,7 @@ dependencies = [
  "config",
  "ed25519-dalek",
  "hex",
+ "http",
  "rand_core",
  "reqwest",
  "serde",
@@ -3533,6 +3535,7 @@ dependencies = [
  "tower-service",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
