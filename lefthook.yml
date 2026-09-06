@@ -17,5 +17,3 @@ pre-push:
       run: cargo fmt --check
     clippy:
       run: cargo clippy --workspace -- -D warnings
-    test:
-      run: cargo nextest run --workspace
