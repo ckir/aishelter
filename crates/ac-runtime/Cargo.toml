@@ -11,3 +11,17 @@ sqlx = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 async-trait = "0.1"
+lambda_http = { version = "1", optional = true }
+lambda_runtime = { version = "1", optional = true }
+http = { workspace = true }
+tokio = { workspace = true }
+bytes = "1"
+http-body-util = "0.1"
+tracing = { workspace = true }
+
+[features]
+lambda = ["dep:lambda_http", "dep:lambda_runtime"]
+
+[dev-dependencies]
+futures = "0.3"
+tokio = { workspace = true, features = ["macros", "rt"] }

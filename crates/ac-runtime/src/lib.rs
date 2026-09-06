@@ -94,3 +94,22 @@ impl DbAdapter for PgDbAdapter {
         Ok(pool)
     }
 }
+
+// Platform-specific adapter modules, compiled only when their feature
+// flags are enabled. This keeps the dependency tree lean — a Cloud Run
+// deployment doesn't pull in lambda_http, for example.
+
+/// Adapter implementations for specific deployment platforms.
+///
+/// Each sub-module provides one or more `HttpAdapter` implementations
+/// gated behind a feature flag. Enable only the adapter(s) needed for
+/// the target deployment.
+#[cfg(feature = "lambda")]
+pub mod adapters;
+
+/// Re-export the AWS Lambda HTTP adapter when the `lambda` feature is enabled.
+///
+/// Allows users to write `use ac_runtime::LambdaHttpAdapter` without
+/// navigating through the adapters module path.
+#[cfg(feature = "lambda")]
+pub use adapters::lambda::LambdaHttpAdapter;
