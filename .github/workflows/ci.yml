@@ -31,22 +31,6 @@ jobs:
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: aishelter
-          POSTGRES_PASSWORD: aishelter_dev
-          POSTGRES_DB: aishelter
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://aishelter:aishelter_dev@localhost:5432/aishelter
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -58,22 +42,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: aishelter
-          POSTGRES_PASSWORD: aishelter_dev
-          POSTGRES_DB: aishelter
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://aishelter:aishelter_dev@localhost:5432/aishelter
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
