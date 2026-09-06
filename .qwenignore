@@ -8,3 +8,20 @@ Thumbs.db
 
 # Mutation testing output
 mutants.out*/
+
+# Node.js (wrangler)
+node_modules/
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
+# Qwen Code session temp files
+.qwen/tmp/
+
+# Superpowers SDD workspace
+.superpowers/
+
+# Serena AI assistant
+.serena/
+
+# Superpowers
+.superpowers/

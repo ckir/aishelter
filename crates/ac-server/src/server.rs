@@ -57,10 +57,10 @@ pub fn create_app(pool: PgPool, metrics: Metrics, rate_limiter: RateLimiter) -> 
         .nest("/v1/tasks", ac_tasks::handler::routes(pool.clone()))
         .nest("/v1/validations", ac_validation::handler::routes(pool.clone()))
         .nest("/v1/agents", ac_reputation::handler::routes(pool.clone()))
-        .layer(Extension(metrics.clone()))
-        .layer(from_fn(record_metrics))
-        .layer(Extension(rate_limiter))
         .layer(from_fn(rate_limit_mw))
+        .layer(Extension(rate_limiter))
+        .layer(from_fn(record_metrics))
+        .layer(Extension(metrics.clone()))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().include_headers(true).level(Level::INFO)),

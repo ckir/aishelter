@@ -208,6 +208,7 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -305,6 +306,7 @@ dependencies = [
  "testcontainers-modules",
  "tokio",
  "tower",
+ "uuid",
 ]
 
 [[package]]

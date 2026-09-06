@@ -38,7 +38,11 @@ impl TestApp {
             // Use the CI-provided postgres service when available.
             // The migrations use CREATE TABLE IF NOT EXISTS, so they are idempotent
             // and safe to run multiple times against the same database.
-            PgPool::connect(&dsn).await.expect("failed to connect to DATABASE_URL")
+            sqlx::postgres::PgPoolOptions::new()
+                .max_connections(2)
+                .connect(&dsn)
+                .await
+                .expect("failed to connect to DATABASE_URL")
         } else {
             // Fall back to testcontainers for local dev
             let container =
@@ -47,7 +51,11 @@ impl TestApp {
             let port =
                 container.get_host_port_ipv4(5432).await.expect("failed to get postgres port");
             let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-            PgPool::connect(&dsn).await.expect("failed to connect to test postgres")
+            sqlx::postgres::PgPoolOptions::new()
+                .max_connections(2)
+                .connect(&dsn)
+                .await
+                .expect("failed to connect to test postgres")
         };
 
         // Resolve migrations path relative to the workspace root.

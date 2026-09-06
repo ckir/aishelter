@@ -40,7 +40,11 @@ async fn create_test_pool() -> PgPool {
     if let Ok(dsn) = std::env::var("DATABASE_URL") {
         // Use the CI-provided postgres service when available.
         // The migrations use CREATE TABLE IF NOT EXISTS, so they are idempotent.
-        let pool = PgPool::connect(&dsn).await.expect("failed to connect to DATABASE_URL");
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(2)
+            .connect(&dsn)
+            .await
+            .expect("failed to connect to DATABASE_URL");
         run_migrations(&pool).await;
         return pool;
     }
@@ -53,7 +57,11 @@ async fn create_test_pool() -> PgPool {
     let host = container.get_host().await.expect("failed to get host");
     let port = container.get_host_port_ipv4(5432).await.expect("failed to get port");
     let dsn = format!("postgres://postgres:postgres@{host}:{port}/postgres");
-    let pool = PgPool::connect(&dsn).await.expect("failed to connect");
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .connect(&dsn)
+        .await
+        .expect("failed to connect");
     run_migrations(&pool).await;
     pool
 }
