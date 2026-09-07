@@ -216,8 +216,10 @@ pub async fn create_iam_pool(database_url: &str) -> anyhow::Result<(sqlx::PgPool
 
     let token = generate_token(&params).await?;
     let url = params.build_url(&token);
+    println!("Connecting with url: {}", url.replace(&token, "REDACTED"));
 
     let pool = PgPoolOptions::new().max_connections(MAX_CONNECTIONS).connect(&url).await?;
+    println!("Pool created successfully!");
 
     Ok((pool, params))
 }

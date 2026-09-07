@@ -23,6 +23,7 @@ required-features = ["workers"]
 lambda = ["ac-runtime/lambda"]
 cloudrun = ["ac-runtime/cloudrun"]
 workers = ["ac-runtime/workers"]
+rds-iam = ["ac-server/rds-iam"]
 
 [dependencies]
 ac-runtime = { path = "../ac-runtime" }

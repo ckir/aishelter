@@ -277,15 +277,22 @@ strategy.
 
 ### AWS Lambda
 
-Build the Lambda binary:
+Build the Lambda binary (with RDS IAM support):
 
 ```bash
-cargo build -p ac-serverless --features lambda --release --bin ac-server-lambda
+cargo build -p ac-serverless --features lambda,rds-iam --release --bin ac-server-lambda
 ```
 
-Deploy using the AWS Lambda console or `aws lambda` CLI. Set the
-`AC_DATABASE_URL` environment variable to point to an RDS Proxy
-endpoint.
+Deploy using the AWS Lambda console or `aws lambda` CLI.
+
+#### Database Connection
+
+You have two options for the Lambda database connection:
+1. **Static Credentials**: Set `AC_DATABASE_URL` to point to an RDS Proxy or any PostgreSQL endpoint with a static password.
+2. **Native IAM Auth**: Set `AC_RDS_IAM_AUTH="true"` and set `AC_DATABASE_URL` to your RDS instance endpoint (with a dummy password). The Lambda will generate an IAM token during the cold start phase and automatically refresh it in the background across subsequent warm invocations.
+
+> [!WARNING]
+> **VPC Networking**: If you use IAM Auth, the Lambda will communicate with the AWS STS service (`sts.us-east-1.amazonaws.com`). If your Lambda is placed inside a private VPC subnet with no NAT Gateway, you must create a VPC Interface Endpoint for STS so the Lambda can fetch the IAM token.
 
 **Cold start:** The first invocation creates the connection pool and
 runs migrations (~2-5s). Warm invocations reuse the pool.

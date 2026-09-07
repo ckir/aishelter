@@ -41,14 +41,25 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     // Load configuration
-    let settings = Settings::new().unwrap_or_else(|_| Settings::default());
+    let settings = match Settings::new() {
+        Ok(s) => s,
+        Err(e) => {
+            println!("Settings error: {:?}", e);
+            Settings::default()
+        }
+    };
+    println!("settings.rds_iam_auth = {}", settings.rds_iam_auth);
 
     // Create database connection pool
+    println!("Creating shared pool...");
     let shared_pool = create_pool(&settings).await?;
+    println!("Shared pool created successfully!");
 
     // Run pending database migrations
     let pool = shared_pool.load();
+    println!("Running migrations...");
     sqlx::migrate!("../../migrations").run(&pool).await?;
+    println!("Migrations complete!");
     drop(pool);
 
     // Create metrics registry

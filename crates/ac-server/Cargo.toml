@@ -39,6 +39,8 @@ aws-rds-signer = { version = "0.2", optional = true }
 utoipa = { workspace = true }
 utoipa-axum = { workspace = true }
 utoipa-scalar = { workspace = true }
+aws-config = { version = "1.12.0", features = ["behavior-version-latest", "client-hyper", "rustls"] }
+aws-sdk-sts = "1.114.0"
 
 [features]
 default = ["rds-iam"]

@@ -24,6 +24,15 @@ async fn main() -> anyhow::Result<()> {
     let settings = Settings::new().unwrap_or_else(|_| Settings::default());
 
     // Create database connection pool (cold start)
+    #[cfg(feature = "rds-iam")]
+    let pool = if settings.rds_iam_auth {
+        let (pool, _) = ac_server::rds_iam::create_iam_pool(&settings.database_url).await?;
+        pool
+    } else {
+        PgDbAdapter::create_pool(&settings.database_url).await?
+    };
+
+    #[cfg(not(feature = "rds-iam"))]
     let pool = PgDbAdapter::create_pool(&settings.database_url).await?;
 
     // Run pending database migrations (cold start only)

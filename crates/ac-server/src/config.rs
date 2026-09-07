@@ -4,7 +4,7 @@
 //! for the Agent Commons HTTP server, loaded from environment variables
 //! (preferred) with TOML file fallback and hardcoded defaults.
 
-use config::{Config, ConfigError, Environment, File};
+use config::{Config, ConfigError, File};
 use serde::Deserialize;
 
 /// Runtime configuration for the Agent Commons server.
@@ -48,11 +48,35 @@ impl Settings {
     /// Returns a [`ConfigError`] if the TOML file is malformed or
     /// environment variable parsing fails.
     pub fn new() -> Result<Self, ConfigError> {
-        let builder = Config::builder()
-            .add_source(File::new("config/default", config::FileFormat::Toml).required(false))
-            .add_source(Environment::with_prefix("AC").separator("_"));
+        let mut settings = Settings::default();
 
-        builder.build()?.try_deserialize()
+        // Try to load from TOML if it exists
+        if let Ok(builder) = Config::builder()
+            .add_source(File::new("config/default", config::FileFormat::Toml).required(false))
+            .build()
+        {
+            if let Ok(toml_settings) = builder.try_deserialize::<Settings>() {
+                settings = toml_settings;
+            }
+        }
+
+        // Manually parse env vars to avoid config crate's buggy nested separator logic
+        if let Ok(url) = std::env::var("AC_DATABASE_URL") {
+            settings.database_url = url;
+        }
+        if let Ok(host) = std::env::var("AC_HOST") {
+            settings.host = host;
+        }
+        if let Ok(port) = std::env::var("AC_PORT") {
+            if let Ok(p) = port.parse() {
+                settings.port = p;
+            }
+        }
+        if let Ok(iam) = std::env::var("AC_RDS_IAM_AUTH") {
+            settings.rds_iam_auth = iam == "true" || iam == "1";
+        }
+
+        Ok(settings)
     }
 }
 

@@ -1,0 +1,15 @@
+warning: unused import: `Environment`
+ --> crates\ac-server\src\config.rs:7:35
+  |
+7 | use config::{Config, ConfigError, Environment, File};
+  |                                   ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ac-server` (lib) generated 1 warning (run `cargo fix --lib -p ac-server` to apply 1 suggestion)
+warning: linker stderr: ignoring deprecated linker optimization setting '1'
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `ac-serverless` (bin "ac-server-lambda") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 3.47s
