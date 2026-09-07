@@ -15,7 +15,7 @@ use axum::{
     routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use ac_db::pool::SharedPool;
 
 use crate::service::RegistryService;
 
@@ -23,7 +23,7 @@ use crate::service::RegistryService;
 ///
 /// The router expects a [`PgPool`] state, which is used by each handler to
 /// construct a [`RegistryService`] for database operations.
-pub fn routes(pool: PgPool) -> Router {
+pub fn routes(pool: SharedPool) -> Router {
     Router::new()
         .route("/register", post(register_handler))
         .route("/{id}", get(get_agent_handler))
@@ -99,9 +99,10 @@ pub struct CardUpdateRequest {
     ),
 )]
 pub async fn register_handler(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<RegisterResponse>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = RegistryService::new(pool);
     let agent = service
         .register_agent(
@@ -136,9 +137,10 @@ pub async fn register_handler(
     ),
 )]
 pub async fn get_agent_handler(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = RegistryService::new(pool);
     let agent = service.get_agent(&id).await?;
 
@@ -170,10 +172,11 @@ pub async fn get_agent_handler(
     ),
 )]
 pub async fn update_card_handler(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(id): Path<String>,
     Json(req): Json<CardUpdateRequest>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = RegistryService::new(pool);
     service.update_card(&id, req.name.clone(), req.description.clone()).await?;
 

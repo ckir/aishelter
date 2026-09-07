@@ -28,6 +28,7 @@ workers = ["ac-runtime/workers"]
 ac-runtime = { path = "../ac-runtime" }
 ac-server = { path = "../ac-server" }
 ac-metrics = { path = "../ac-metrics" }
+ac-db = { path = "../ac-db" }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }

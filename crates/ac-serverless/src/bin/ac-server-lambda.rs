@@ -41,7 +41,8 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // Build the application router
-    let app = create_app(pool, metrics, rate_limiter);
+    let shared_pool = ac_db::pool::SharedPool::new(pool);
+    let app = create_app(shared_pool, metrics, rate_limiter);
 
     // Start serving via Lambda adapter
     let adapter = LambdaHttpAdapter::new();

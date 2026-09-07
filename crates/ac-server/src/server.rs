@@ -9,12 +9,12 @@
 //! `/docs` and the raw OpenAPI specification at `/api/openapi.json`.
 
 use crate::middleware::rate_limit::{RateLimiter, rate_limit as rate_limit_mw};
+use ac_db::pool::SharedPool;
 use ac_metrics::middleware::record_metrics;
 use ac_metrics::readiness;
 use ac_metrics::registry::Metrics;
 use axum::{Router, extract::Extension, middleware::from_fn, routing::get};
 use http::header::HeaderName;
-use sqlx::PgPool;
 use tower_http::request_id::{MakeRequestUuid, SetRequestIdLayer};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::Level;
@@ -33,7 +33,7 @@ use crate::routes::ApiDoc;
 /// - Rate limiting with global and per-agent token buckets
 /// - OpenAPI JSON at `/api/openapi.json`
 /// - Interactive Scalar UI at `/docs`
-pub fn create_app(pool: PgPool, metrics: Metrics, rate_limiter: RateLimiter) -> Router {
+pub fn create_app(pool: SharedPool, metrics: Metrics, rate_limiter: RateLimiter) -> Router {
     let app = Router::new()
         .route("/v1/health", get(health_check))
         .route("/v1/version", get(version_check))
@@ -43,7 +43,8 @@ pub fn create_app(pool: PgPool, metrics: Metrics, rate_limiter: RateLimiter) -> 
             get({
                 let pool = pool.clone();
                 move || async move {
-                    if readiness::check(&pool).await {
+                    let pg_pool = pool.load();
+                    if readiness::check(&pg_pool).await {
                         (axum::http::StatusCode::OK, "ready")
                     } else {
                         (axum::http::StatusCode::SERVICE_UNAVAILABLE, "not ready")

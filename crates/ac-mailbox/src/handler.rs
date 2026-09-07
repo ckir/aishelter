@@ -12,12 +12,12 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use sqlx::PgPool;
+use ac_db::pool::SharedPool;
 
 use super::service::MailboxService;
 
 /// Build the mailbox router with all four endpoints.
-pub fn routes(pool: PgPool) -> Router {
+pub fn routes(pool: SharedPool) -> Router {
     Router::new()
         .route("/", post(send_message))
         .route("/", get(get_messages))
@@ -67,9 +67,10 @@ pub struct SendMessageRequest {
     ),
 )]
 pub async fn send_message(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Json(req): Json<SendMessageRequest>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = MailboxService::new(pool);
     // Parse the optional RFC 3339 expiry into a DateTime<Utc>.
     let expires_at = req
@@ -103,9 +104,10 @@ pub async fn send_message(
     ),
 )]
 pub async fn get_messages(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Query(params): Query<GetMessagesQuery>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = MailboxService::new(pool);
     let messages =
         service.get_messages(&params.agent_id, params.unacknowledged.unwrap_or(true)).await?;
@@ -129,9 +131,10 @@ pub async fn get_messages(
     ),
 )]
 pub async fn get_message(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = MailboxService::new(pool);
     let msg = service.get_message(&id).await?;
     Ok(Json(serde_json::json!({ "data": msg })))
@@ -150,9 +153,10 @@ pub async fn get_message(
     ),
 )]
 pub async fn acknowledge_message(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = MailboxService::new(pool);
     service.acknowledge_message(&id).await?;
     Ok(Json(serde_json::json!({ "status": "acknowledged" })))

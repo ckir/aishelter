@@ -27,6 +27,14 @@ pub struct Settings {
     pub rate_limit_per_agent: u64,
     /// Rate limit window in seconds.
     pub rate_limit_window_secs: u64,
+    /// Enable RDS IAM authentication with automatic token refresh.
+    ///
+    /// When `true`, the server treats the `database_url` as an RDS
+    /// endpoint, generates a short-lived IAM auth token on startup,
+    /// and spawns a background task to refresh the token every
+    /// ~12 minutes. Requires the `rds-iam` feature flag.
+    #[serde(default)]
+    pub rds_iam_auth: bool,
 }
 
 impl Settings {
@@ -57,6 +65,7 @@ impl Default for Settings {
             rate_limit_global: 1000,
             rate_limit_per_agent: 100,
             rate_limit_window_secs: 60,
+            rds_iam_auth: false,
         }
     }
 }

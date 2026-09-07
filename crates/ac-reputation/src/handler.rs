@@ -8,12 +8,12 @@ use axum::{
     routing::get,
 };
 use serde::Serialize;
-use sqlx::PgPool;
+use ac_db::pool::SharedPool;
 
 /// Application state for reputation routes.
 #[derive(Clone)]
 pub struct ReputationState {
-    pub pool: PgPool,
+    pub pool: SharedPool,
 }
 
 /// Reputation scores response.
@@ -57,7 +57,8 @@ pub async fn get_reputation(
     Path(agent_id): Path<String>,
     State(state): State<ReputationState>,
 ) -> Result<Json<ReputationResponse>, (StatusCode, String)> {
-    let service = ReputationService::new(state.pool);
+    let pool = state.pool.load();
+    let service = ReputationService::new(pool);
     let snapshot = service.get_reputation(&agent_id).await.map_err(|e| match e {
         AcError::AgentNotFound(_) => (StatusCode::NOT_FOUND, e.to_string()),
         AcError::Database(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
@@ -95,7 +96,8 @@ pub async fn get_contributions(
     Path(agent_id): Path<String>,
     State(state): State<ReputationState>,
 ) -> Result<Json<ContributionsResponse>, (StatusCode, String)> {
-    let service = ReputationService::new(state.pool);
+    let pool = state.pool.load();
+    let service = ReputationService::new(pool);
     let stats = service
         .get_contributions(&agent_id)
         .await
@@ -110,7 +112,7 @@ pub async fn get_contributions(
 }
 
 /// Build the reputation router.
-pub fn routes(pool: PgPool) -> Router {
+pub fn routes(pool: SharedPool) -> Router {
     let state = ReputationState { pool };
     Router::new()
         .route("/{id}/reputation", get(get_reputation))

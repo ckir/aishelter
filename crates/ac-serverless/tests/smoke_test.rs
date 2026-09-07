@@ -16,7 +16,8 @@ async fn smoke_health_check() {
     let metrics = Metrics::new();
     let rate_limiter = RateLimiter::new(1000, 100, 60);
 
-    let app = create_app(pool, metrics, rate_limiter);
+    let shared_pool = ac_db::pool::SharedPool::new(pool);
+    let app = create_app(shared_pool, metrics, rate_limiter);
 
     let uri: Uri = "/v1/health".parse().expect("invalid URI");
     let req = Request::builder()

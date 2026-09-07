@@ -67,7 +67,8 @@ impl TestApp {
 
         let metrics = Metrics::new();
         let rate_limiter = RateLimiter::new(1000, 100, 60);
-        let app = ac_server::server::create_app(pool.clone(), metrics, rate_limiter);
+        let shared_pool = ac_db::pool::SharedPool::new(pool.clone());
+        let app = ac_server::server::create_app(shared_pool, metrics, rate_limiter);
 
         Self { pool, app }
     }

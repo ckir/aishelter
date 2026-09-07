@@ -13,3 +13,4 @@ chrono = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
+arc-swap = { workspace = true }

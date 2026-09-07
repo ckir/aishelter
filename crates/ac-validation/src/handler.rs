@@ -10,13 +10,13 @@ use axum::{
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use ac_db::pool::SharedPool;
 
 use crate::quorum::QuorumDecision;
 use crate::service::ValidationService;
 
 /// Build the validation router with the given database pool.
-pub fn routes(pool: PgPool) -> Router {
+pub fn routes(pool: SharedPool) -> Router {
     Router::new()
         .route("/{task_id}/validate", post(validate_task))
         .route("/{task_id}", get(get_validations))
@@ -61,10 +61,11 @@ pub struct ValidateResponse {
     ),
 )]
 pub async fn validate_task(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(task_id): Path<String>,
     Json(req): Json<ValidateRequest>,
 ) -> Result<Json<ValidateResponse>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = ValidationService::new(pool);
     let decision = service
         .validate_task(&task_id, &req.validator_id, &req.decision, req.reasoning.as_deref())
@@ -92,9 +93,10 @@ pub async fn validate_task(
     ),
 )]
 pub async fn get_validations(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(task_id): Path<String>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = ValidationService::new(pool);
     let history = service.get_validations(&task_id).await?;
 

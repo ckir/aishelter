@@ -13,12 +13,12 @@ use axum::{
     routing::{get, post},
 };
 use serde::Deserialize;
-use sqlx::PgPool;
+use ac_db::pool::SharedPool;
 
 use crate::service::TaskService;
 
 /// Build the task router with all five endpoints.
-pub fn routes(pool: PgPool) -> Router {
+pub fn routes(pool: SharedPool) -> Router {
     Router::new()
         .route("/", post(create_task))
         .route("/{id}", get(get_task))
@@ -80,9 +80,10 @@ pub struct SubmitResultRequest {
     ),
 )]
 pub async fn create_task(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Json(req): Json<CreateTaskRequest>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = TaskService::new(pool);
     let verification_method = req.verification_method.unwrap_or_else(|| "peer".to_string());
     let required_validators = req.required_validators.unwrap_or(2);
@@ -115,9 +116,10 @@ pub async fn create_task(
     ),
 )]
 pub async fn get_task(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = TaskService::new(pool);
     let task = service.get_task(&id).await?;
     Ok(Json(serde_json::json!({ "data": task })))
@@ -138,10 +140,11 @@ pub async fn get_task(
     ),
 )]
 pub async fn accept_task(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(id): Path<String>,
     Json(req): Json<TaskActionRequest>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = TaskService::new(pool);
     service.accept_task(&id, &req.agent_id).await?;
     Ok(Json(serde_json::json!({ "status": "accepted" })))
@@ -162,10 +165,11 @@ pub async fn accept_task(
     ),
 )]
 pub async fn reject_task(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(id): Path<String>,
     Json(req): Json<TaskActionRequest>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = TaskService::new(pool);
     service.reject_task(&id, &req.agent_id).await?;
     Ok(Json(serde_json::json!({ "status": "rejected" })))
@@ -186,10 +190,11 @@ pub async fn reject_task(
     ),
 )]
 pub async fn submit_result(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Path(id): Path<String>,
     Json(req): Json<SubmitResultRequest>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = TaskService::new(pool);
     service.submit_result(&id, &req.agent_id, req.result, &req.output_hash).await?;
     Ok(Json(serde_json::json!({ "status": "submitted" })))

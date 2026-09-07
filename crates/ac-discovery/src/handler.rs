@@ -12,7 +12,7 @@ use axum::{
     routing::get,
 };
 use serde::Deserialize;
-use sqlx::PgPool;
+use ac_db::pool::SharedPool;
 
 use crate::service::{DiscoveryService, SearchQuery};
 
@@ -51,9 +51,10 @@ pub struct SearchParams {
     ),
 )]
 pub async fn search(
-    State(pool): State<PgPool>,
+    State(pool): State<SharedPool>,
     Query(params): Query<SearchParams>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    let pool = pool.load();
     let service = DiscoveryService::new(pool);
     let query = SearchQuery {
         capability: params.capability,
@@ -75,6 +76,6 @@ pub async fn search(
 /// Build the discovery router with the search route mounted.
 ///
 /// The router expects a [`PgPool`] state for database access.
-pub fn routes(pool: PgPool) -> Router {
+pub fn routes(pool: SharedPool) -> Router {
     Router::new().route("/search", get(search)).with_state(pool)
 }

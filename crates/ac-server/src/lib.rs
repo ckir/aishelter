@@ -20,5 +20,8 @@ pub mod middleware;
 pub mod routes;
 /// Axum HTTP server construction and routing.
 pub mod server;
+/// RDS IAM authentication and pool refresh (requires `rds-iam` feature).
+#[cfg(feature = "rds-iam")]
+pub mod rds_iam;
 
 pub use server::create_app;
