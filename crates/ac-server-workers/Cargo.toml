@@ -9,9 +9,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 worker = { workspace = true, features = ["http", "axum"] }
-tower = "0.5"
+tower = { workspace = true }
 axum = { version = "0.8", default-features = false }
 http = { workspace = true }
-http-body-util = "0.1"
-bytes = "1"
-futures-util = "0.3"
+http-body-util = { workspace = true }
+bytes = { workspace = true }
+futures-util = { workspace = true }
