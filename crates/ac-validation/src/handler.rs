@@ -4,13 +4,13 @@
 //! - `POST /{task_id}/validate` — submit a validation decision
 //! - `GET /{task_id}` — retrieve all validation decisions for a task
 
+use ac_db::pool::SharedPool;
 use axum::{
     Json, Router,
     extract::{Path, State},
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
-use ac_db::pool::SharedPool;
 
 use crate::quorum::QuorumDecision;
 use crate::service::ValidationService;

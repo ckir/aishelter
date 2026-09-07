@@ -103,14 +103,7 @@ impl RdsConnParams {
 
         let query_params = url.query().unwrap_or("").to_string();
 
-        Ok(Self {
-            hostname,
-            port,
-            username,
-            dbname,
-            region,
-            query_params,
-        })
+        Ok(Self { hostname, port, username, dbname, region, query_params })
     }
 
     /// Build a `postgresql://` connection URL with the given password.
@@ -126,11 +119,7 @@ impl RdsConnParams {
             "postgresql://{}:{}@{}:{}/{}",
             self.username, encoded, self.hostname, self.port, self.dbname,
         );
-        if self.query_params.is_empty() {
-            base
-        } else {
-            format!("{}?{}", base, self.query_params)
-        }
+        if self.query_params.is_empty() { base } else { format!("{}?{}", base, self.query_params) }
     }
 }
 
@@ -143,16 +132,17 @@ impl RdsConnParams {
 pub async fn generate_token(params: &RdsConnParams) -> anyhow::Result<String> {
     use aws_rds_signer::Signer;
 
-    let mut signer = Signer::default();
-    let token = signer
+    let signer = aws_rds_signer::Signer::builder()
         .host(params.hostname.clone())
         .port(params.port)
         .user(params.username.clone())
-        .expires_in(Duration::from_secs(900))
-        .region(Some(params.region.clone()))
+        .region(params.region.clone())
+        .build();
+
+    let token = signer
         .fetch_token()
         .await
-        .map_err(|e| anyhow::anyhow!("RDS IAM token generation failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("Failed to generate RDS IAM token: {}", e))?;
 
     Ok(token)
 }
@@ -191,10 +181,7 @@ pub fn start_refresh_loop(
             match generate_token(&params).await {
                 Ok(token) => {
                     let url = params.build_url(&token);
-                    match PgPoolOptions::new()
-                        .max_connections(MAX_CONNECTIONS)
-                        .connect(&url)
-                        .await
+                    match PgPoolOptions::new().max_connections(MAX_CONNECTIONS).connect(&url).await
                     {
                         Ok(new_pool) => {
                             shared_pool.swap(new_pool);
@@ -220,9 +207,7 @@ pub fn start_refresh_loop(
 ///
 /// Used at server startup to create the initial pool with a fresh token.
 #[cfg(feature = "rds-iam")]
-pub async fn create_iam_pool(
-    database_url: &str,
-) -> anyhow::Result<(sqlx::PgPool, RdsConnParams)> {
+pub async fn create_iam_pool(database_url: &str) -> anyhow::Result<(sqlx::PgPool, RdsConnParams)> {
     let params = RdsConnParams::from_url(database_url)?;
 
     tracing::info!(
@@ -234,10 +219,7 @@ pub async fn create_iam_pool(
     let token = generate_token(&params).await?;
     let url = params.build_url(&token);
 
-    let pool = PgPoolOptions::new()
-        .max_connections(MAX_CONNECTIONS)
-        .connect(&url)
-        .await?;
+    let pool = PgPoolOptions::new().max_connections(MAX_CONNECTIONS).connect(&url).await?;
 
     Ok((pool, params))
 }

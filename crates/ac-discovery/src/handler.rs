@@ -5,6 +5,7 @@
 //! reliability score (descending) and filtered by optional minimum
 //! reliability threshold.
 
+use ac_db::pool::SharedPool;
 use axum::{
     Router,
     extract::{Query, State},
@@ -12,7 +13,6 @@ use axum::{
     routing::get,
 };
 use serde::Deserialize;
-use ac_db::pool::SharedPool;
 
 use crate::service::{DiscoveryService, SearchQuery};
 

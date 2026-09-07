@@ -1,4 +1,5 @@
 use crate::service::ReputationService;
+use ac_db::pool::SharedPool;
 use ac_types::error::AcError;
 use axum::{
     Router,
@@ -8,7 +9,6 @@ use axum::{
     routing::get,
 };
 use serde::Serialize;
-use ac_db::pool::SharedPool;
 
 /// Application state for reputation routes.
 #[derive(Clone)]

@@ -16,12 +16,12 @@
 pub mod config;
 /// HTTP middleware modules.
 pub mod middleware;
+/// RDS IAM authentication and pool refresh (requires `rds-iam` feature).
+#[cfg(feature = "rds-iam")]
+pub mod rds_iam;
 /// OpenAPI documentation and Scalar UI.
 pub mod routes;
 /// Axum HTTP server construction and routing.
 pub mod server;
-/// RDS IAM authentication and pool refresh (requires `rds-iam` feature).
-#[cfg(feature = "rds-iam")]
-pub mod rds_iam;
 
 pub use server::create_app;

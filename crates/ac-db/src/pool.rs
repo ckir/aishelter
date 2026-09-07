@@ -44,9 +44,7 @@ pub struct SharedPool {
 impl SharedPool {
     /// Create a new `SharedPool` from an existing [`PgPool`].
     pub fn new(pool: PgPool) -> Self {
-        Self {
-            inner: Arc::new(ArcSwap::from_pointee(pool)),
-        }
+        Self { inner: Arc::new(ArcSwap::from_pointee(pool)) }
     }
 
     /// Load a snapshot of the current pool.
@@ -98,4 +96,3 @@ pub async fn create_pool(
     let pool = PgPoolOptions::new().max_connections(max_connections).connect(database_url).await?;
     Ok(pool)
 }
-

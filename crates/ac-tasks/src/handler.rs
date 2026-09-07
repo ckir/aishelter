@@ -7,13 +7,13 @@
 //! - `POST /{id}/reject` — reject a task offer
 //! - `POST /{id}/result` — submit a task result
 
+use ac_db::pool::SharedPool;
 use axum::{
     Json, Router,
     extract::{Path, State},
     routing::{get, post},
 };
 use serde::Deserialize;
-use ac_db::pool::SharedPool;
 
 use crate::service::TaskService;
 

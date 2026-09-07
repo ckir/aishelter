@@ -6,13 +6,13 @@
 //! - `GET /{id}` — retrieve a single message by UUID
 //! - `POST /{id}/ack` — mark a message as acknowledged (read)
 
+use ac_db::pool::SharedPool;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
     routing::{get, post},
 };
 use serde::Deserialize;
-use ac_db::pool::SharedPool;
 
 use super::service::MailboxService;
 

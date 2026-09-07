@@ -92,10 +92,7 @@ async fn create_pool(settings: &Settings) -> anyhow::Result<SharedPool> {
     }
 
     // Standard mode: static credentials, no refresh needed
-    let pool = PgPoolOptions::new()
-        .max_connections(10)
-        .connect(&settings.database_url)
-        .await?;
+    let pool = PgPoolOptions::new().max_connections(10).connect(&settings.database_url).await?;
     Ok(SharedPool::new(pool))
 }
 

@@ -9,13 +9,13 @@
 //! All responses include the `"protocol": "acp/1"` field to identify the
 //! Agent Commons protocol version.
 
+use ac_db::pool::SharedPool;
 use axum::{
     Json, Router,
     extract::{Path, State},
     routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
-use ac_db::pool::SharedPool;
 
 use crate::service::RegistryService;
 
