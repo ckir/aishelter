@@ -55,16 +55,15 @@ jobs:
           mkdir -p out
           IFS=',' read -ra BINS <<< "${{ matrix.bin-names }}"
           for bin in "${BINS[@]}"; do
-            if [[ "$bin" == "ac-server-lambda" || "$bin" == "ac-server-cloudrun" || "$bin" == "ac-server-workers" ]]; then
+            if [[ "$bin" == "ac-server-lambda" || "$bin" == "ac-server-cloudrun" ]]; then
               feature="${bin#ac-server-}"
+              cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature,rds-iam" --bin "$bin"
+              cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}"
+            elif [[ "$bin" == "ac-server-workers" ]]; then
               if [[ "${{ matrix.wasm }}" == "true" ]]; then
-                cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature,rds-iam" --bin "$bin"
-                cp "target/${{ matrix.target }}/release/${bin}.wasm" "out/${bin}-${{ matrix.artifact-prefix }}.wasm" 2>/dev/null || \
-                cp "target/${{ matrix.target }}/release/deps/${bin}.wasm" "out/${bin}-${{ matrix.artifact-prefix }}.wasm" 2>/dev/null || \
-                cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}.wasm"
-              else
-                cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature,rds-iam" --bin "$bin"
-                cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}"
+                cargo build --release --target ${{ matrix.target }} -p ac-server-workers --lib
+                wasm_file="target/${{ matrix.target }}/release/${bin//-/_}.wasm"
+                cp "$wasm_file" "out/${bin}-${{ matrix.artifact-prefix }}.wasm"
               fi
             else
               cargo build --release --target ${{ matrix.target }} -p ac-server --bin "$bin"
@@ -72,7 +71,7 @@ jobs:
 
             if [[ "${{ matrix.runner }}" == "windows-latest" && "${{ matrix.wasm }}" != "true" ]]; then
               cp "target/${{ matrix.target }}/release/${bin}.exe" "out/${bin}-${{ matrix.artifact-prefix }}.exe"
-            elif [[ "${{ matrix.wasm }}" != "true" ]]; then
+            elif [[ "${{ matrix.wasm }}" != "true" && "$bin" != "ac-server-workers" ]]; then
               cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}"
             fi
           done

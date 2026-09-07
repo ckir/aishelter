@@ -19,7 +19,9 @@ members = [
     "crates/ac-server",
     "crates/ac-metrics",
     "crates/ac-runtime",
-    "crates/ac-serverless", "lambda-test",
+    "crates/ac-serverless",
+    "crates/ac-server-workers",
+    "lambda-test",
 ]
 resolver = "2"
 

@@ -1,0 +1,17 @@
+[package]
+name = "ac-server-workers"
+version = "0.3.0"
+edition = "2024"
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+worker = { workspace = true, features = ["http", "axum"] }
+tower = "0.5"
+axum = { version = "0.8", default-features = false }
+http = { workspace = true }
+http-body-util = "0.1"
+bytes = "1"
+futures-util = "0.3"

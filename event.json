@@ -1,0 +1,16 @@
+{
+    "version": "2.0",
+    "routeKey": "$default",
+    "rawPath": "/v1/health",
+    "rawQueryString": "",
+    "headers": {
+        "accept": "*/*"
+    },
+    "requestContext": {
+        "http": {
+            "method": "GET",
+            "path": "/v1/health"
+        }
+    },
+    "isBase64Encoded": false
+}

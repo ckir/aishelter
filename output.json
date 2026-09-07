@@ -1,1 +1,1 @@
-{"errorType":"Runtime.ExitError","errorMessage":"RequestId: 8c4c57f2-8954-4ad6-9469-7af323acd2bd Error: Runtime exited with error: exit status 1"}
+{"statusCode":200,"headers":{"content-type":"text/plain; charset=utf-8","content-length":"2"},"multiValueHeaders":{},"body":"ok","isBase64Encoded":false,"cookies":[]}
