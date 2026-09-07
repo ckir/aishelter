@@ -10,15 +10,15 @@ tower = { workspace = true }
 sqlx = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
-async-trait = "0.1"
-lambda_http = { version = "1", optional = true }
-lambda_runtime = { version = "1", optional = true }
+async-trait = { workspace = true }
+lambda_http = { workspace = true, optional = true }
+lambda_runtime = { workspace = true, optional = true }
 http = { workspace = true }
 tokio = { workspace = true }
-bytes = "1"
-http-body-util = "0.1"
+bytes = { workspace = true }
+http-body-util = { workspace = true }
 tracing = { workspace = true }
-worker = { version = "0.8.5", features = ["axum"], optional = true }
+worker = { workspace = true, features = ["axum"], optional = true }
 
 [features]
 lambda = ["dep:lambda_http", "dep:lambda_runtime"]
