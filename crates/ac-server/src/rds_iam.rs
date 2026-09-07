@@ -130,7 +130,7 @@ impl RdsConnParams {
 /// EC2/ECS instance role, etc.).
 #[cfg(feature = "rds-iam")]
 pub async fn generate_token(params: &RdsConnParams) -> anyhow::Result<String> {
-    use aws_rds_signer::Signer;
+
 
     let signer = aws_rds_signer::Signer::builder()
         .host(params.hostname.clone())
