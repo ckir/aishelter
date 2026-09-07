@@ -18,13 +18,18 @@ jobs:
         include:
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            bin-names: "agent-commons,ac-server-cloudrun,ac-server-workers"
+            bin-names: "agent-commons,ac-server-cloudrun"
             artifact-prefix: linux-amd64
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
             bin-names: "ac-server-lambda"
             artifact-prefix: linux-amd64
             musl: true
+          - runner: ubuntu-latest
+            target: wasm32-unknown-unknown
+            bin-names: "ac-server-workers"
+            artifact-prefix: wasm
+            wasm: true
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             bin-names: "agent-commons"
@@ -42,6 +47,9 @@ jobs:
       - name: Install musl tools
         if: matrix.musl
         run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Install wasm-pack
+        if: matrix.wasm
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Build and stage binaries
         run: |
           mkdir -p out
@@ -49,14 +57,22 @@ jobs:
           for bin in "${BINS[@]}"; do
             if [[ "$bin" == "ac-server-lambda" || "$bin" == "ac-server-cloudrun" || "$bin" == "ac-server-workers" ]]; then
               feature="${bin#ac-server-}"
-              cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature,rds-iam" --bin "$bin"
+              if [[ "${{ matrix.wasm }}" == "true" ]]; then
+                cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature,rds-iam" --bin "$bin"
+                cp "target/${{ matrix.target }}/release/${bin}.wasm" "out/${bin}-${{ matrix.artifact-prefix }}.wasm" 2>/dev/null || \
+                cp "target/${{ matrix.target }}/release/deps/${bin}.wasm" "out/${bin}-${{ matrix.artifact-prefix }}.wasm" 2>/dev/null || \
+                cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}.wasm"
+              else
+                cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature,rds-iam" --bin "$bin"
+                cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}"
+              fi
             else
               cargo build --release --target ${{ matrix.target }} -p ac-server --bin "$bin"
             fi
-            
-            if [[ "${{ matrix.runner }}" == "windows-latest" ]]; then
+
+            if [[ "${{ matrix.runner }}" == "windows-latest" && "${{ matrix.wasm }}" != "true" ]]; then
               cp "target/${{ matrix.target }}/release/${bin}.exe" "out/${bin}-${{ matrix.artifact-prefix }}.exe"
-            else
+            elif [[ "${{ matrix.wasm }}" != "true" ]]; then
               cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}"
             fi
           done
