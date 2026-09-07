@@ -18,8 +18,13 @@ jobs:
         include:
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            bin-names: "agent-commons,ac-server-lambda,ac-server-cloudrun,ac-server-workers"
+            bin-names: "agent-commons,ac-server-cloudrun,ac-server-workers"
             artifact-prefix: linux-amd64
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            bin-names: "ac-server-lambda"
+            artifact-prefix: linux-amd64
+            musl: true
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             bin-names: "agent-commons"
@@ -34,6 +39,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+      - name: Install musl tools
+        if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
       - name: Build and stage binaries
         run: |
           mkdir -p out
