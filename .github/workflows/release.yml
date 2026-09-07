@@ -49,7 +49,7 @@ jobs:
           for bin in "${BINS[@]}"; do
             if [[ "$bin" == "ac-server-lambda" || "$bin" == "ac-server-cloudrun" || "$bin" == "ac-server-workers" ]]; then
               feature="${bin#ac-server-}"
-              cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature" --bin "$bin"
+              cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature,rds-iam" --bin "$bin"
             else
               cargo build --release --target ${{ matrix.target }} -p ac-server --bin "$bin"
             fi
