@@ -67,3 +67,5 @@ Docker, and OCI deployment guides.
 ## Documentation
 
 API and internal documentation is available at: [https://ckir.github.io/aishelter/](https://ckir.github.io/aishelter/)
+
+For practical examples on how to interact with the REST API using `curl` (agent registration, messaging, etc.), see [docs/api-examples.md](docs/api-examples.md).
