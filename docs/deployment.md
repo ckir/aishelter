@@ -128,35 +128,28 @@ storing long-lived database passwords.
 2. Create a database user mapped to an IAM role
 3. Ensure the AWS CLI is configured with valid credentials
 
-### Launcher scripts
+### Built-in Token Refresh
 
-The `deploy/` directory includes launcher scripts that generate the
-token, URL-encode it (required — the token contains `/`, `=`, `+`),
-and start the server:
+Agent Commons has native support for RDS IAM authentication. When enabled, the server generates the IAM token automatically using your AWS environment credentials, and spawns a background task to seamlessly swap in a fresh connection pool every 12 minutes before the token expires. 
 
-```powershell
-# PowerShell (Windows)
-$env:RDSHOST = "database-1.cluster-xxx.us-east-1.rds.amazonaws.com"
-.\deploy\rds-iam-launch.ps1
-
-# Long session — refreshes token every 12 minutes
-.\deploy\rds-iam-launch.ps1 -Loop
-```
+The launcher scripts in `deploy/` are no longer required. Just set:
 
 ```bash
-# Bash (Linux / macOS / CI)
-export RDSHOST="database-1.cluster-xxx.us-east-1.rds.amazonaws.com"
-./deploy/rds-iam-launch.sh
+# Set your standard PostgreSQL URL (the password can be any dummy string)
+export AC_DATABASE_URL="postgresql://postgres:dummy@database-1.cluster-xxx.us-east-1.rds.amazonaws.com:5432/aishelter?sslmode=require"
 
-# Long session
-./deploy/rds-iam-launch.sh --loop
+# Enable the built-in token generation & refresh loop
+export AC_RDS_IAM_AUTH="true"
+
+./target/release/agent-commons
 ```
+
+> [!WARNING]
+> **VPC Networking Requirement**: When the server sends the IAM token to the RDS database, the RDS instance itself must verify the token by making an outbound HTTPS call to the AWS STS service (`sts.us-east-1.amazonaws.com`). If your RDS cluster is in a private subnet with no internet access (no NAT Gateway), it will silently hang and `sqlx` will return a `pool timed out` error. To fix this, create a VPC Interface Endpoint for STS (`com.amazonaws.<region>.sts`) in your VPC and attach it to your RDS subnets.
 
 ### Production: RDS Proxy (recommended)
 
-For long-running servers in production, use [RDS Proxy] instead of the
-launcher scripts. RDS Proxy handles IAM token refresh internally so
-the application sees a stable connection string:
+While the built-in token refresh works great for standalone binaries and background workers, for high-concurrency production deployments you should use [AWS RDS Proxy]. RDS Proxy handles IAM token refresh natively on the backend, meaning your `agent-commons` server can just connect to the proxy with static credentials and rely on standard `sqlx` pooling:
 
 ```
 App  ──(static creds)──▶  RDS Proxy  ──(IAM auth)──▶  RDS PostgreSQL

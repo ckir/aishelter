@@ -31,9 +31,9 @@ fmt:
 # Full check: fmt + clippy + test
 check: fmt-check clippy test
 
-# Run the server locally (requires PostgreSQL)
+# Run the server locally with RDS IAM auth enabled
 run:
-    cargo run -p ac-server --bin agent-commons
+    @powershell -Command "$env:AC_RDS_IAM_AUTH='true'; cargo run -p ac-server --bin agent-commons"
 
 # Initialize the database (run migrations)
 init-db:
