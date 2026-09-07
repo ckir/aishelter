@@ -56,6 +56,11 @@ utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }
 utoipa-axum = "0.2"
 utoipa-scalar = { version = "0.3", features = ["axum"] }
 prometheus-client = "0.22"
+aws-rds-signer = "0.2"
+aws-config = "1.12.0"
+aws-sdk-sts = "1.114.0"
+rand_core = "0.6"
+hex = "0.4"
 testcontainers = "0.23"
 testcontainers-modules = { version = "0.11", features = ["postgres"] }
 openapiv3 = "2"

@@ -34,13 +34,13 @@ sqlx = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 url = { workspace = true }
-aws-rds-signer = { version = "0.2", optional = true }
+aws-rds-signer = { workspace = true, optional = true }
 
 utoipa = { workspace = true }
 utoipa-axum = { workspace = true }
 utoipa-scalar = { workspace = true }
-aws-config = { version = "1.12.0", features = ["behavior-version-latest", "client-hyper", "rustls"] }
-aws-sdk-sts = "1.114.0"
+aws-config = { workspace = true, features = ["behavior-version-latest", "client-hyper", "rustls"] }
+aws-sdk-sts = { workspace = true }
 
 [features]
 default = ["rds-iam"]
@@ -55,5 +55,5 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 ed25519-dalek = { workspace = true }
 sha2 = { workspace = true }
-rand_core = "0.6"
-hex = "0.4"
+rand_core = { workspace = true }
+hex = { workspace = true }
