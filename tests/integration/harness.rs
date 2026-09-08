@@ -93,7 +93,7 @@ impl TestApp {
     ///
     /// Panics if the URI cannot be parsed or the service call fails.
     pub async fn get(&self, path: &str) -> Response<Body> {
-        let uri: Uri = path.parse().expect("invalid URI");
+        let uri = path.parse::<axum::http::Uri>().expect("invalid URI");
         let req = Request::builder().uri(uri).body(Body::empty()).expect("failed to build request");
         self.request(req).await
     }
@@ -106,7 +106,7 @@ impl TestApp {
     /// the service call fails.
     pub async fn post_json(&self, path: &str, body: serde_json::Value) -> Response<Body> {
         let json = serde_json::to_string(&body).expect("failed to serialise JSON");
-        let uri: Uri = path.parse().expect("invalid URI");
+        let uri = path.parse::<axum::http::Uri>().expect("invalid URI");
         let req = Request::builder()
             .method("POST")
             .uri(uri)
@@ -124,7 +124,7 @@ impl TestApp {
     /// the service call fails.
     pub async fn put_json(&self, path: &str, body: serde_json::Value) -> Response<Body> {
         let json = serde_json::to_string(&body).expect("failed to serialise JSON");
-        let uri: Uri = path.parse().expect("invalid URI");
+        let uri = path.parse::<axum::http::Uri>().expect("invalid URI");
         let req = Request::builder()
             .method("PUT")
             .uri(uri)
@@ -142,7 +142,7 @@ impl TestApp {
     ///
     /// Panics if the URI cannot be parsed or the service call fails.
     pub async fn post(&self, path: &str) -> Response<Body> {
-        let uri: Uri = path.parse().expect("invalid URI");
+        let uri = path.parse::<axum::http::Uri>().expect("invalid URI");
         let req = Request::builder()
             .method("POST")
             .uri(uri)

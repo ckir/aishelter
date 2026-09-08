@@ -92,7 +92,7 @@ async fn idempotency_duplicate_requests() {
 
     // First request — should execute normally
     let json_str = serde_json::to_string(&body).unwrap();
-    let uri = "/v1/agents/register".parse::<Uri>().unwrap();
+    let uri = "/v1/agents/register".parse::<axum::http::Uri>().unwrap();
     let req = Request::builder()
         .method("POST")
         .uri(uri)
@@ -109,7 +109,7 @@ async fn idempotency_duplicate_requests() {
     // Second request with same key — should return cached response
     let req2 = Request::builder()
         .method("POST")
-        .uri("/v1/agents/register".parse::<Uri>().unwrap())
+        .uri("/v1/agents/register".parse::<axum::http::Uri>().unwrap())
         .header(header::CONTENT_TYPE, "application/json")
         .header("Idempotency-Key", idempotency_key)
         .body(Body::from(json_str))
@@ -150,7 +150,7 @@ async fn idempotency_different_keys() {
 
     let req1 = Request::builder()
         .method("POST")
-        .uri("/v1/agents/register".parse::<Uri>().unwrap())
+        .uri("/v1/agents/register".parse::<axum::http::Uri>().unwrap())
         .header(header::CONTENT_TYPE, "application/json")
         .header("Idempotency-Key", "idem-key-1")
         .body(Body::from(json_str1))
@@ -160,7 +160,7 @@ async fn idempotency_different_keys() {
 
     let req2 = Request::builder()
         .method("POST")
-        .uri("/v1/agents/register".parse::<Uri>().unwrap())
+        .uri("/v1/agents/register".parse::<axum::http::Uri>().unwrap())
         .header(header::CONTENT_TYPE, "application/json")
         .header("Idempotency-Key", "idem-key-2")
         .body(Body::from(json_str2))
@@ -283,7 +283,7 @@ async fn nonce_missing_timestamp_rejected() {
     let app = TestApp::setup().await;
     let (agent_id, _public_key) = register_agent(&app).await;
 
-    let uri = format!("/v1/agents/{agent_id}").parse::<Uri>().unwrap();
+    let uri = format!("/v1/agents/{agent_id}").parse::<axum::http::Uri>().unwrap();
     let req = Request::builder()
         .method("GET")
         .uri(uri)
@@ -308,7 +308,7 @@ async fn nonce_expired_timestamp_rejected() {
     let old_timestamp = (Utc::now().timestamp() - 600).to_string();
     let nonce = "nonce-expired-test-001";
 
-    let uri = format!("/v1/agents/{agent_id}").parse::<Uri>().unwrap();
+    let uri = format!("/v1/agents/{agent_id}").parse::<axum::http::Uri>().unwrap();
     let req = Request::builder()
         .method("GET")
         .uri(uri)
