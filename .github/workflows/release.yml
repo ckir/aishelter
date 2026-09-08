@@ -22,7 +22,7 @@ jobs:
             artifact-prefix: linux-amd64
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            bin-names: "ac-server-lambda"
+            bin-names: "ac-server-lambda,pg-proxy-lambda"
             artifact-prefix: linux-amd64
             musl: true
           - runner: ubuntu-latest
@@ -58,6 +58,9 @@ jobs:
             if [[ "$bin" == "ac-server-lambda" || "$bin" == "ac-server-cloudrun" ]]; then
               feature="${bin#ac-server-}"
               cargo build --release --target ${{ matrix.target }} -p ac-serverless --features "$feature,rds-iam" --bin "$bin"
+              cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}"
+            elif [[ "$bin" == "pg-proxy-lambda" ]]; then
+              cargo build --release --target ${{ matrix.target }} -p pg-proxy-lambda --bin "$bin"
               cp "target/${{ matrix.target }}/release/${bin}" "out/${bin}-${{ matrix.artifact-prefix }}"
             elif [[ "$bin" == "ac-server-workers" ]]; then
               if [[ "${{ matrix.wasm }}" == "true" ]]; then

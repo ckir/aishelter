@@ -21,6 +21,7 @@ members = [
     "crates/ac-runtime",
     "crates/ac-serverless",
     "crates/ac-server-workers",
+    "crates/pg-proxy-lambda",
     "lambda-test",
 ]
 resolver = "2"
