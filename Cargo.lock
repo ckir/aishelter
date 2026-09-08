@@ -419,10 +419,12 @@ dependencies = [
 name = "aishelter"
 version = "0.3.0"
 dependencies = [
+ "ac-crypto",
  "ac-db",
  "ac-metrics",
  "ac-server",
  "axum",
+ "chrono",
  "ed25519-dalek",
  "hex",
  "jsonschema",
@@ -431,6 +433,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sqlx",
  "testcontainers",
  "testcontainers-modules",

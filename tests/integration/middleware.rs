@@ -13,7 +13,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
 use chrono::Utc;
 use ed25519_dalek::SigningKey;
-use hex::encode;
+use hex;
 use rand_core::OsRng;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -27,8 +27,8 @@ use crate::harness::TestApp;
 fn make_keypair() -> (String, String) {
     let signing_key = SigningKey::generate(&mut OsRng);
     let public_key = signing_key.verifying_key();
-    let agent_id = format!("agent_test_{}", encode(public_key.to_bytes()));
-    let public_key_hex = encode(public_key.to_bytes());
+    let agent_id = format!("agent_test_{}", hex::encode(public_key.to_bytes()));
+    let public_key_hex = hex::encode(public_key.to_bytes());
     (agent_id, public_key_hex)
 }
 
@@ -53,7 +53,7 @@ fn build_signed_request(
 ) -> Request<Body> {
     let timestamp = Utc::now().timestamp().to_string();
     let body_str = body.unwrap_or("");
-    let body_hash = encode(Sha256::digest(body_str.as_bytes()));
+    let body_hash = hex::encode(Sha256::digest(body_str.as_bytes()));
 
     // Build the string to sign
     let to_sign = format!("{agent_id}\n{timestamp}\n{nonce}\n{method}\n{path}\n{body_hash}");
@@ -92,7 +92,7 @@ async fn idempotency_duplicate_requests() {
 
     // First request — should execute normally
     let json_str = serde_json::to_string(&body).unwrap();
-    let uri = "/v1/agents/register".parse().unwrap();
+    let uri = "/v1/agents/register".parse::<Uri>().unwrap();
     let req = Request::builder()
         .method("POST")
         .uri(uri)
@@ -109,7 +109,7 @@ async fn idempotency_duplicate_requests() {
     // Second request with same key — should return cached response
     let req2 = Request::builder()
         .method("POST")
-        .uri("/v1/agents/register".parse().unwrap())
+        .uri("/v1/agents/register".parse::<Uri>().unwrap())
         .header(header::CONTENT_TYPE, "application/json")
         .header("Idempotency-Key", idempotency_key)
         .body(Body::from(json_str))
@@ -150,7 +150,7 @@ async fn idempotency_different_keys() {
 
     let req1 = Request::builder()
         .method("POST")
-        .uri("/v1/agents/register".parse().unwrap())
+        .uri("/v1/agents/register".parse::<Uri>().unwrap())
         .header(header::CONTENT_TYPE, "application/json")
         .header("Idempotency-Key", "idem-key-1")
         .body(Body::from(json_str1))
@@ -160,7 +160,7 @@ async fn idempotency_different_keys() {
 
     let req2 = Request::builder()
         .method("POST")
-        .uri("/v1/agents/register".parse().unwrap())
+        .uri("/v1/agents/register".parse::<Uri>().unwrap())
         .header(header::CONTENT_TYPE, "application/json")
         .header("Idempotency-Key", "idem-key-2")
         .body(Body::from(json_str2))
@@ -283,7 +283,7 @@ async fn nonce_missing_timestamp_rejected() {
     let app = TestApp::setup().await;
     let (agent_id, _public_key) = register_agent(&app).await;
 
-    let uri = format!("/v1/agents/{agent_id}").parse().unwrap();
+    let uri = format!("/v1/agents/{agent_id}").parse::<Uri>().unwrap();
     let req = Request::builder()
         .method("GET")
         .uri(uri)
@@ -308,7 +308,7 @@ async fn nonce_expired_timestamp_rejected() {
     let old_timestamp = (Utc::now().timestamp() - 600).to_string();
     let nonce = "nonce-expired-test-001";
 
-    let uri = format!("/v1/agents/{agent_id}").parse().unwrap();
+    let uri = format!("/v1/agents/{agent_id}").parse::<Uri>().unwrap();
     let req = Request::builder()
         .method("GET")
         .uri(uri)

@@ -93,10 +93,13 @@ jsonschema = { workspace = true }
 sqlx = { workspace = true }
 ac-server = { path = "crates/ac-server" }
 ac-metrics = { path = "crates/ac-metrics" }
+ac-crypto = { path = "crates/ac-crypto" }
 ac-db = { path = "crates/ac-db" }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 ed25519-dalek = { workspace = true }
 rand_core = "0.6"
-hex = "0.4"
 uuid = { workspace = true }
 
 [[test]]
