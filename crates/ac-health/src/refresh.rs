@@ -24,6 +24,7 @@ const BACKOFF_BASE_SECS: i64 = 60;
 const BACKOFF_MAX_SECS: i64 = 24 * 3600; // 24 hours
 
 /// Conditional GET response: either 304 Not Modified, or new content.
+#[allow(dead_code)]
 enum FetchResult {
     /// Server returned 304 — manifest unchanged.
     NotModified,
@@ -49,6 +50,7 @@ pub enum RefreshError {
 
 /// Database row for a service that needs refreshing.
 #[derive(sqlx::FromRow)]
+#[allow(dead_code)]
 struct StaleService {
     service_id: String,
     manifest_url: String,
@@ -213,7 +215,7 @@ impl ManifestRefresher {
                     .await?;
                 Ok(false)
             }
-            FetchResult::NewContent { body, etag, last_modified } => {
+            FetchResult::NewContent { body, etag: _, last_modified: _ } => {
                 // Validate the new manifest.
                 validate_service_manifest(&body).map_err(|e| {
                     RefreshError::ValidationFailed(format!("schema validation failed: {e:?}"))
@@ -274,15 +276,13 @@ impl ManifestRefresher {
 
     /// Perform a conditional GET with ETag / Last-Modified support.
     async fn fetch_with_conditional_get(&self, url: &str) -> Result<FetchResult, RefreshError> {
-        let mut builder = self.client.get(url);
-
         // In a real implementation we would send If-None-Match and
         // If-Modified-Since from the stored etag/last_modified values.
         // The services table currently doesn't have dedicated columns
         // for these, so we skip them on this call but handle 304
         // responses if the server sends them regardless.
 
-        let response = builder.send().await?;
+        let response = self.client.get(url).send().await?;
 
         if response.status() == reqwest::StatusCode::NOT_MODIFIED {
             return Ok(FetchResult::NotModified);

@@ -32,4 +32,4 @@ pub mod handler;
 /// MCP tool declarations and input schemas.
 pub mod tools;
 
-pub use handler::mcp_router;
+pub use handler::{JsonRpcResponse, mcp_router};

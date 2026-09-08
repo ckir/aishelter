@@ -7,7 +7,6 @@
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use thiserror::Error;
 use tracing::{error, info, warn};
@@ -73,12 +72,38 @@ fn is_private_or_loopback(host: &str) -> bool {
 
     // RFC 1918 private ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
     if let Ok(ip) = host.parse::<std::net::IpAddr>() {
-        if ip.is_loopback() || ip.is_private() || ip.is_link_local() {
+        if ip.is_loopback() {
             return true;
         }
-        // Also block the well-known AWS metadata IP explicitly
-        if host == AWS_METADATA_IP {
-            return true;
+        match ip {
+            std::net::IpAddr::V4(v4) => {
+                // 10.0.0.0/8
+                if v4.octets()[0] == 10 {
+                    return true;
+                }
+                // 172.16.0.0/12
+                if v4.octets()[0] == 172 && (v4.octets()[1] & 0xF0) == 16 {
+                    return true;
+                }
+                // 192.168.0.0/16
+                if v4.octets()[0] == 192 && v4.octets()[1] == 168 {
+                    return true;
+                }
+                // Link-local 169.254.0.0/16
+                if v4.octets()[0] == 169 && v4.octets()[1] == 254 {
+                    return true;
+                }
+            }
+            std::net::IpAddr::V6(v6) => {
+                // IPv6 link-local fe80::/10
+                if v6.octets()[0] == 0xFE && (v6.octets()[1] & 0xC0) == 0x80 {
+                    return true;
+                }
+                // IPv6 unique local fc00::/7
+                if (v6.octets()[0] & 0xFE) == 0xFC {
+                    return true;
+                }
+            }
         }
     }
 
@@ -134,6 +159,7 @@ async fn probe_service(url: &str) -> Result<ServiceHealth, HealthError> {
 /// HealthChecker — probes services and persists health status.
 pub struct HealthChecker {
     pool: PgPool,
+    #[allow(dead_code)]
     client: Client,
 }
 
@@ -201,7 +227,6 @@ impl HealthChecker {
                     );
 
                     // Persist the result.
-                    let new_sha = format!("{:x}", Sha256::digest(ep.manifest_url.as_bytes()));
                     let now = Utc::now();
 
                     sqlx::query(

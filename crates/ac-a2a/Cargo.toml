@@ -12,9 +12,11 @@ ac-registry = { path = "../ac-registry" }
 ac-discovery = { path = "../ac-discovery" }
 ac-mailbox = { path = "../ac-mailbox" }
 ac-tasks = { path = "../ac-tasks" }
+ac-validation = { path = "../ac-validation" }
 axum = { workspace = true }
 sqlx = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
+chrono = { workspace = true }

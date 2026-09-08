@@ -6,7 +6,7 @@
 
 use ac_db::pool::SharedPool;
 use ac_discovery::service::{DiscoveryService, SearchQuery};
-use ac_mailbox::handler::service::MailboxService;
+use ac_mailbox::service::MailboxService;
 use ac_registry::service::RegistryService;
 use ac_tasks::service::TaskService;
 use ac_validation::service::ValidationService;
@@ -14,7 +14,7 @@ use axum::{Json, Router, extract::State, routing::post};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::tools::{McpTool, list_tools};
+use crate::tools::list_tools;
 
 // ---------------------------------------------------------------------------
 // JSON-RPC 2.0 envelope types
@@ -49,6 +49,26 @@ pub struct JsonRpcError {
     pub error: RpcErrorBody,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Value>,
+}
+
+/// Unified JSON-RPC 2.0 response (success or error).
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum JsonRpcResponse {
+    Success(JsonRpcSuccess<Value>),
+    Error(JsonRpcError),
+}
+
+impl From<JsonRpcSuccess<Value>> for JsonRpcResponse {
+    fn from(s: JsonRpcSuccess<Value>) -> Self {
+        JsonRpcResponse::Success(s)
+    }
+}
+
+impl From<JsonRpcError> for JsonRpcResponse {
+    fn from(e: JsonRpcError) -> Self {
+        JsonRpcResponse::Error(e)
+    }
 }
 
 /// The `error` object inside a JSON-RPC error response.
@@ -130,24 +150,26 @@ struct ValidateArgs {
 
 /// JSON-RPC error codes used by this adapter.
 mod codes {
+    #[allow(dead_code)]
     pub const PARSE_ERROR: i64 = -32700;
     pub const INVALID_REQUEST: i64 = -32600;
     pub const METHOD_NOT_FOUND: i64 = -32601;
+    #[allow(dead_code)]
     pub const INTERNAL_ERROR: i64 = -32603;
     /// Application-level error (mapped from [`ac_types::error::AcError`]).
     pub const APPLICATION_ERROR: i64 = -32000;
 }
 
-fn rpc_error(code: i64, message: impl Into<String>, id: Option<Value>) -> Json<JsonRpcError> {
-    Json(JsonRpcError {
+fn rpc_error(code: i64, message: impl Into<String>, id: Option<Value>) -> Json<JsonRpcResponse> {
+    Json(JsonRpcResponse::Error(JsonRpcError {
         jsonrpc: "2.0",
         error: RpcErrorBody { code, message: message.into(), data: None },
         id,
-    })
+    }))
 }
 
-fn success(result: Value, id: Option<Value>) -> Json<JsonRpcSuccess<Value>> {
-    Json(JsonRpcSuccess { jsonrpc: "2.0", result, id })
+fn success(result: Value, id: Option<Value>) -> Json<JsonRpcResponse> {
+    Json(JsonRpcResponse::Success(JsonRpcSuccess { jsonrpc: "2.0", result, id }))
 }
 
 // ---------------------------------------------------------------------------
@@ -373,7 +395,7 @@ async fn call_validate(
 async fn mcp_handler(
     State(pool): State<SharedPool>,
     Json(req): Json<JsonRpcRequest>,
-) -> Json<impl Serialize> {
+) -> Json<JsonRpcResponse> {
     let id = req.id.clone();
 
     match req.method.as_str() {

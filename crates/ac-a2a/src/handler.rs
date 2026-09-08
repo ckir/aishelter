@@ -16,9 +16,10 @@ use ac_db::pool::SharedPool;
 use axum::{
     Json, Router,
     extract::{Path, State},
+    response::IntoResponse,
     routing::post,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use thiserror::Error;
 
 // --- Internal service imports ---
@@ -27,8 +28,7 @@ use ac_mailbox::service::MailboxService;
 use ac_registry::service::RegistryService;
 use ac_tasks::service::TaskService;
 use ac_types::error::AcError;
-
-// --- Validation service (we call its service directly) ---
+use ac_validation::quorum::QuorumDecision;
 use ac_validation::service::ValidationService;
 
 /// Build the A2A adapter router with all six endpoints.
@@ -53,7 +53,7 @@ pub fn a2a_router(pool: SharedPool) -> Router {
 /// - `status`: `"ok"` on success, `"error"` on failure
 /// - `data`: the successful payload (present only on `"ok"`)
 /// - `error`: the error message (present only on `"error"`)
-#[derive(Serialize)]
+#[derive(serde::Serialize)]
 pub struct A2aResponse {
     /// `"ok"` or `"error"`.
     pub status: String,
@@ -77,6 +77,12 @@ impl A2aResponse {
     }
 }
 
+impl IntoResponse for A2aResponse {
+    fn into_response(self) -> axum::response::Response {
+        Json(self).into_response()
+    }
+}
+
 /// A2A-specific error type for mapping internal failures to the envelope.
 #[derive(Debug, Error)]
 pub enum A2aError {
@@ -86,9 +92,9 @@ pub enum A2aError {
     BadRequest(String),
 }
 
-impl From<A2aError> for A2aResponse {
-    fn from(err: A2aError) -> Self {
-        A2aResponse::error(err.to_string())
+impl IntoResponse for A2aError {
+    fn into_response(self) -> axum::response::Response {
+        A2aResponse::error(self.to_string()).into_response()
     }
 }
 
@@ -118,7 +124,7 @@ pub struct A2aDiscoverRequest {
 pub async fn a2a_discover(
     State(pool): State<SharedPool>,
     Json(req): Json<A2aDiscoverRequest>,
-) -> Result<Json<A2aResponse>, A2aError> {
+) -> Result<A2aResponse, A2aError> {
     let pool = pool.load();
     let service = DiscoveryService::new(pool);
 
@@ -132,10 +138,10 @@ pub async fn a2a_discover(
 
     let results = service.search_agents(&query).await.map_err(A2aError::Acp)?;
 
-    Ok(Json(A2aResponse::ok(serde_json::json!({
+    Ok(A2aResponse::ok(serde_json::json!({
         "results": results,
         "count": results.len(),
-    }))))
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +176,7 @@ pub struct A2aProfileFields {
 pub async fn a2a_register(
     State(pool): State<SharedPool>,
     Json(req): Json<A2aRegisterRequest>,
-) -> Result<Json<A2aResponse>, A2aError> {
+) -> Result<A2aResponse, A2aError> {
     let pool = pool.load();
     let service = RegistryService::new(pool);
 
@@ -184,11 +190,11 @@ pub async fn a2a_register(
         .await
         .map_err(A2aError::Acp)?;
 
-    Ok(Json(A2aResponse::ok(serde_json::json!({
+    Ok(A2aResponse::ok(serde_json::json!({
         "agent_id": agent.agent_id,
         "status": agent.status,
         "protocol": "acp/1",
-    }))))
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +224,7 @@ pub struct A2aMessageRequest {
 pub async fn a2a_message(
     State(pool): State<SharedPool>,
     Json(req): Json<A2aMessageRequest>,
-) -> Result<Json<A2aResponse>, A2aError> {
+) -> Result<A2aResponse, A2aError> {
     let pool = pool.load();
     let service = MailboxService::new(pool);
 
@@ -238,10 +244,10 @@ pub async fn a2a_message(
         .await
         .map_err(A2aError::Acp)?;
 
-    Ok(Json(A2aResponse::ok(serde_json::json!({
+    Ok(A2aResponse::ok(serde_json::json!({
         "status": "sent",
         "message_id": message_id,
-    }))))
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -274,7 +280,7 @@ pub struct A2aTaskRequest {
 pub async fn a2a_task(
     State(pool): State<SharedPool>,
     Json(req): Json<A2aTaskRequest>,
-) -> Result<Json<A2aResponse>, A2aError> {
+) -> Result<A2aResponse, A2aError> {
     let pool = pool.load();
     let service = TaskService::new(pool);
 
@@ -294,10 +300,10 @@ pub async fn a2a_task(
         .await
         .map_err(A2aError::Acp)?;
 
-    Ok(Json(A2aResponse::ok(serde_json::json!({
+    Ok(A2aResponse::ok(serde_json::json!({
         "task_id": task_id,
         "status": "CREATED",
-    }))))
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -323,7 +329,7 @@ pub async fn a2a_task_result(
     State(pool): State<SharedPool>,
     Path(task_id): Path<String>,
     Json(req): Json<A2aTaskResultRequest>,
-) -> Result<Json<A2aResponse>, A2aError> {
+) -> Result<A2aResponse, A2aError> {
     let pool = pool.load();
     let service = TaskService::new(pool);
 
@@ -332,9 +338,9 @@ pub async fn a2a_task_result(
         .await
         .map_err(A2aError::Acp)?;
 
-    Ok(Json(A2aResponse::ok(serde_json::json!({
+    Ok(A2aResponse::ok(serde_json::json!({
         "status": "submitted",
-    }))))
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -361,7 +367,7 @@ pub async fn a2a_task_validate(
     State(pool): State<SharedPool>,
     Path(task_id): Path<String>,
     Json(req): Json<A2aTaskValidateRequest>,
-) -> Result<Json<A2aResponse>, A2aError> {
+) -> Result<A2aResponse, A2aError> {
     let pool = pool.load();
     let service = ValidationService::new(pool);
 
@@ -371,13 +377,13 @@ pub async fn a2a_task_validate(
         .map_err(A2aError::Acp)?;
 
     let decision_str = match decision {
-        ac_validation::quorum::QuorumDecision::Verified => "verified",
-        ac_validation::quorum::QuorumDecision::Rejected => "rejected",
-        ac_validation::quorum::QuorumDecision::Disputed => "disputed",
-        ac_validation::quorum::QuorumDecision::Pending => "pending",
+        QuorumDecision::Verified => "verified",
+        QuorumDecision::Rejected => "rejected",
+        QuorumDecision::Disputed => "disputed",
+        QuorumDecision::Pending => "pending",
     };
 
-    Ok(Json(A2aResponse::ok(serde_json::json!({
+    Ok(A2aResponse::ok(serde_json::json!({
         "decision": decision_str,
-    }))))
+    })))
 }
