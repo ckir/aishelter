@@ -264,6 +264,7 @@ dependencies = [
  "ac-api",
  "ac-crypto",
  "ac-db",
+ "ac-directory",
  "ac-discovery",
  "ac-mailbox",
  "ac-metrics",

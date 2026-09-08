@@ -19,6 +19,7 @@ ac-mailbox = { path = "../ac-mailbox" }
 ac-tasks = { path = "../ac-tasks" }
 ac-validation = { path = "../ac-validation" }
 ac-reputation = { path = "../ac-reputation" }
+ac-directory = { path = "../ac-directory" }
 ac-metrics = { path = "../ac-metrics" }
 axum = { workspace = true }
 http = { workspace = true }

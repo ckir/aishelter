@@ -198,7 +198,7 @@ async fn call_search_agents(
     args: Option<Value>,
 ) -> Result<Value, ac_types::error::AcError> {
     let args: SearchAgentsArgs = args
-        .map(|v| serde_json::from_value(v))
+        .map(serde_json::from_value)
         .transpose()
         .map_err(|e| ac_types::error::AcError::Internal(format!("bad search_agents args: {e}")))?
         .unwrap_or(SearchAgentsArgs {
@@ -232,7 +232,7 @@ async fn call_register_agent(
     args: Option<Value>,
 ) -> Result<Value, ac_types::error::AcError> {
     let args: RegisterAgentArgs = args
-        .map(|v| serde_json::from_value(v))
+        .map(serde_json::from_value)
         .transpose()
         .map_err(|e| ac_types::error::AcError::Internal(format!("bad register_agent args: {e}")))?
         .ok_or_else(|| {
@@ -262,7 +262,7 @@ async fn call_send_message(
     args: Option<Value>,
 ) -> Result<Value, ac_types::error::AcError> {
     let args: SendMessageArgs = args
-        .map(|v| serde_json::from_value(v))
+        .map(serde_json::from_value)
         .transpose()
         .map_err(|e| ac_types::error::AcError::Internal(format!("bad send_message args: {e}")))?
         .ok_or_else(|| {
@@ -297,7 +297,7 @@ async fn call_create_task(
     args: Option<Value>,
 ) -> Result<Value, ac_types::error::AcError> {
     let args: CreateTaskArgs = args
-        .map(|v| serde_json::from_value(v))
+        .map(serde_json::from_value)
         .transpose()
         .map_err(|e| ac_types::error::AcError::Internal(format!("bad create_task args: {e}")))?
         .ok_or_else(|| {
@@ -337,7 +337,7 @@ async fn call_submit_result(
     args: Option<Value>,
 ) -> Result<Value, ac_types::error::AcError> {
     let args: SubmitResultArgs = args
-        .map(|v| serde_json::from_value(v))
+        .map(serde_json::from_value)
         .transpose()
         .map_err(|e| ac_types::error::AcError::Internal(format!("bad submit_result args: {e}")))?
         .ok_or_else(|| {
@@ -358,7 +358,7 @@ async fn call_validate(
     args: Option<Value>,
 ) -> Result<Value, ac_types::error::AcError> {
     let args: ValidateArgs = args
-        .map(|v| serde_json::from_value(v))
+        .map(serde_json::from_value)
         .transpose()
         .map_err(|e| ac_types::error::AcError::Internal(format!("bad validate args: {e}")))?
         .ok_or_else(|| {
@@ -414,7 +414,7 @@ async fn mcp_handler(
         }
 
         "tools/call" => {
-            let params: ToolsCallParams = match req.params.map(|v| serde_json::from_value(v)) {
+            let params: ToolsCallParams = match req.params.map(serde_json::from_value) {
                 Some(Ok(p)) => p,
                 Some(Err(e)) => {
                     return rpc_error(codes::INVALID_REQUEST, e.to_string(), id);
