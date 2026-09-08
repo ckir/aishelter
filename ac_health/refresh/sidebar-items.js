@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BACKOFF_BASE_SECS","BACKOFF_MAX_SECS","MAX_STALE_HOURS","STALE_THRESHOLD"],"enum":["FetchResult","RefreshError"],"struct":["ManifestRefresher","StaleService"]};

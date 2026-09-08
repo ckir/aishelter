@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_agent_handler","register_handler","routes","update_card_handler"],"struct":["CardUpdateRequest","ProfileFields","RegisterRequest","RegisterResponse"]};

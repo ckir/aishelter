@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DiscoveryResult","DiscoveryService","SearchQuery"],"type":["DiscoveryRow"]};

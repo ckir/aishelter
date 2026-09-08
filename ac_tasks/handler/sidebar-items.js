@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["accept_task","create_task","get_task","reject_task","routes","submit_result"],"struct":["CreateTaskRequest","SubmitResultRequest","TaskActionRequest"]};

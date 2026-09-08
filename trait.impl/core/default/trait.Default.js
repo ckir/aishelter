@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["ac_discovery",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.1/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ac_discovery/service/struct.SearchQuery.html\" title=\"struct ac_discovery::service::SearchQuery\">SearchQuery</a>",0]]],["ac_reputation",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.1/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ac_reputation/scoring/struct.Scorer.html\" title=\"struct ac_reputation::scoring::Scorer\">Scorer</a>",0]]],["ac_server",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.1/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ac_server/config/struct.Settings.html\" title=\"struct ac_server::config::Settings\">Settings</a>",0]]],["ac_types",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.1/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"struct\" href=\"ac_types/agent/struct.AgentId.html\" title=\"struct ac_types::agent::AgentId\">AgentId</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.1/core/default/trait.Default.html\" title=\"trait core::default::Default\">Default</a> for <a class=\"enum\" href=\"ac_types/agent/enum.AgentStatus.html\" title=\"enum ac_types::agent::AgentStatus\">AgentStatus</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[319,308,300,575]}

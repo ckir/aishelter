@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_app","health_check","metrics_handler","version_check"]};

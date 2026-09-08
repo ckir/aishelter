@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["handle_query","handler","main"],"struct":["AppState","QueryRequest","QueryResponse"]};
