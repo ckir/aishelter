@@ -58,7 +58,7 @@ fn build_signed_request(
     // Build the string to sign
     let to_sign = format!("{agent_id}\n{timestamp}\n{nonce}\n{method}\n{path}\n{body_hash}");
 
-    let uri = path.parse().expect("invalid URI");
+    let uri = path.parse::<axum::http::Uri>().expect("invalid URI");
     let mut builder = Request::builder().method(method).uri(uri);
 
     // Add auth headers
