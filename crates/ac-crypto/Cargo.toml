@@ -15,3 +15,6 @@ chrono = { workspace = true }
 thiserror = { workspace = true }
 rand_core = "0.6"
 hex = "0.4"
+tracing = { workspace = true }
+sqlx = { workspace = true }
+ac-db = { path = "../ac-db" }

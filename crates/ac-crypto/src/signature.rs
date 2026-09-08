@@ -14,6 +14,12 @@ use ed25519_dalek::{Signature, SignatureError, Signer, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+/// HTTP header names used for agent authentication.
+pub const X_AGENT_ID: &str = "x-agent-id";
+pub const X_AGENT_TIMESTAMP: &str = "x-agent-timestamp";
+pub const X_AGENT_NONCE: &str = "x-agent-nonce";
+pub const X_AGENT_SIGNATURE: &str = "x-agent-signature";
+
 /// A signed HTTP request from an agent.
 ///
 /// Every field is required for verification.  The signature covers the

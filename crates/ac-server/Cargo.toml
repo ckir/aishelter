@@ -35,6 +35,9 @@ sqlx = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 url = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 aws-rds-signer = { workspace = true, optional = true }
 
 utoipa = { workspace = true }

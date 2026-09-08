@@ -5,33 +5,27 @@
 //! has already been consumed, preventing attackers from replaying a
 //! previously valid signed request.
 //!
-//! > **Note:** The current implementation uses an in-memory [`HashSet`].
-//! > In production this must be backed by PostgreSQL with a TTL so that
-//! > nonces expire after the request timestamp window elapses.
+//! Backed by the `nonce_replay_cache` PostgreSQL table with TTL expiry.
 
-use std::collections::HashSet;
+use ac_db::pool::SharedPool;
+use chrono::Utc;
+use tracing::error;
 
 /// Tracks nonces to prevent replay attacks.
 ///
-/// Each nonce is a unique opaque string included in the [`SignedRequest`](crate::signature::SignedRequest).
-/// When the server processes a request, it calls [`check_and_insert`](NonceStore::check_and_insert);
+/// Each nonce is a unique opaque string included in the signed request.
+/// When the server processes a request, it calls [`check_and_consume`](NonceStore::check_and_consume);
 /// if the nonce was already seen, the request is rejected as a replay.
 ///
-/// # Production considerations
-///
-/// The current in-memory [`HashSet`] back-end is suitable for testing but
-/// will lose state across restarts.  In production, use the `nonces`
-/// PostgreSQL table with a background job that purges nonces older than
-/// the timestamp tolerance window (e.g. 5 minutes).
+/// Backed by PostgreSQL `nonce_replay_cache` table with expiry.
 pub struct NonceStore {
-    /// Set of nonces that have been consumed.
-    nonces: HashSet<String>,
+    pool: SharedPool,
 }
 
 impl NonceStore {
-    /// Create an empty nonce store.
-    pub fn new() -> Self {
-        Self { nonces: HashSet::new() }
+    /// Create a new nonce store backed by the given database pool.
+    pub fn new(pool: SharedPool) -> Self {
+        Self { pool }
     }
 
     /// Check whether a nonce has been used and record it if it is fresh.
@@ -39,14 +33,49 @@ impl NonceStore {
     /// Returns `true` if this is a **new** nonce (the request should be
     /// processed) or `false` if the nonce was already consumed (the
     /// request should be rejected as a replay).
-    pub fn check_and_insert(&mut self, nonce: &str) -> bool {
-        // HashSet::insert returns true if the value was not already present.
-        self.nonces.insert(nonce.to_string())
-    }
-}
+    ///
+    /// The `expiry_secs` parameter controls how long the nonce remains
+    /// in the cache before expiring.
+    pub async fn check_and_consume(
+        &self,
+        agent_id: &str,
+        nonce: &str,
+        expiry_secs: i64,
+    ) -> Result<bool, sqlx::Error> {
+        let expires_at = Utc::now() + chrono::Duration::seconds(expiry_secs);
 
-impl Default for NonceStore {
-    fn default() -> Self {
-        Self::new()
+        // Try to insert; ON CONFLICT DO NOTHING returns 0 rows if already present
+        let result = sqlx::query(
+            r#"
+            INSERT INTO nonce_replay_cache (agent_id, nonce, expires_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (agent_id, nonce) DO NOTHING
+            "#,
+        )
+        .bind(agent_id)
+        .bind(nonce)
+        .bind(expires_at)
+        .execute(&self.pool.load())
+        .await;
+
+        match result {
+            Ok(rows) => Ok(rows.rows_affected() > 0),
+            Err(e) => {
+                error!(error = %e, agent_id = %agent_id, nonce = %nonce, "failed to insert nonce");
+                Err(e)
+            }
+        }
+    }
+
+    /// Clean up expired nonces.
+    ///
+    /// This should be called periodically (e.g. by a background job or
+    /// scheduled task) to prevent the table from growing unbounded.
+    pub async fn purge_expired(&self) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM nonce_replay_cache WHERE expires_at < NOW()")
+            .execute(&self.pool.load())
+            .await?;
+
+        Ok(result.rows_affected())
     }
 }

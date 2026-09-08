@@ -43,6 +43,7 @@ version = "0.1.0"
 name = "ac-crypto"
 version = "0.3.0"
 dependencies = [
+ "ac-db",
  "ac-types",
  "chrono",
  "ed25519-dalek",
@@ -51,7 +52,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "sqlx",
  "thiserror",
+ "tracing",
  "uuid",
 ]
 
