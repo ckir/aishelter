@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Agent Commons ACP/1 AWS serverless deployment
+
+Parameters:
+  DatabaseSecretArn:
+    Type: String
+
+Globals:
+  Function:
+    Runtime: provided.al2023
+    Architectures: [arm64]
+    Timeout: 30
+    MemorySize: 1024
+    Tracing: Active
+    Environment:
+      Variables:
+        RUST_LOG: info
+
+Resources:
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v1
+      TracingEnabled: true
+      EndpointConfiguration: REGIONAL
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../
+      Handler: bootstrap
+      Events:
+        Proxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /{proxy+}
+            Method: ANY
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref DatabaseSecretArn
+    Metadata:
+      BuildMethod: makefile
+
+  TaskDLQ:
+    Type: AWS::SQS::Queue
+
+  TaskQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt TaskDLQ.Arn
+        maxReceiveCount: 5
+
+  MessageDLQ:
+    Type: AWS::SQS::Queue
+
+  MessageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt MessageDLQ.Arn
+        maxReceiveCount: 5
+
+  ManifestRefreshDLQ:
+    Type: AWS::SQS::Queue
+
+  ManifestRefreshQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ManifestRefreshDLQ.Arn
+        maxReceiveCount: 5
+
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../
+      Handler: bootstrap
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt TaskQueue.QueueName
+        - SQSPollerPolicy:
+            QueueName: !GetAtt MessageQueue.QueueName
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ManifestRefreshQueue.QueueName
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref DatabaseSecretArn
+      Events:
+        Tasks:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt TaskQueue.Arn
+            BatchSize: 10
+        Messages:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt MessageQueue.Arn
+            BatchSize: 10
+        ManifestRefresh:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ManifestRefreshQueue.Arn
+            BatchSize: 5
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/v1/
+  TaskQueueUrl:
+    Value: !Ref TaskQueue
+  MessageQueueUrl:
+    Value: !Ref MessageQueue
+  ManifestRefreshQueueUrl:
+    Value: !Ref ManifestRefreshQueue

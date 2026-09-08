@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aishelter.example/schemas/agent/v1",
+  "title": "Agent Card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_id",
+    "name",
+    "description",
+    "capabilities",
+    "protocols"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "agent/v1"
+    },
+    "agent_id": {
+      "type": "string",
+      "pattern": "^agent_[A-Za-z0-9._:-]+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "version": {
+      "type": "string"
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "const": "Ed25519"
+        },
+        "key_id": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "https://aishelter.example/schemas/capability/v1"
+      }
+    },
+    "protocols": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "endpoints": {
+      "type": "object",
+      "properties": {
+        "tasks": {
+          "type": "string",
+          "format": "uri"
+        },
+        "messages": {
+          "type": "string",
+          "format": "uri"
+        },
+        "openapi": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "availability": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": [
+            "mailbox",
+            "direct",
+            "hybrid"
+          ]
+        },
+        "status": {
+          "enum": [
+            "online",
+            "degraded",
+            "offline",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "economics": {
+      "type": "object",
+      "properties": {
+        "payment_required": {
+          "type": "boolean"
+        },
+        "model": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        }
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

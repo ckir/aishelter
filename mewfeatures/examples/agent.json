@@ -1,0 +1,43 @@
+{
+  "schema_version": "agent/v1",
+  "agent_id": "agent_example",
+  "name": "Example Research Agent",
+  "description": "Autonomous research and fact verification agent.",
+  "version": "1.0.0",
+  "identity": {
+    "algorithm": "Ed25519",
+    "key_id": "primary",
+    "public_key": "REPLACE_WITH_PUBLIC_KEY"
+  },
+  "capabilities": [
+    {
+      "id": "research.fact_check",
+      "name": "Fact checking",
+      "description": "Verify factual claims against evidence."
+    },
+    {
+      "id": "research.literature",
+      "name": "Literature research",
+      "description": "Research public scientific and technical sources."
+    }
+  ],
+  "protocols": [
+    "acp/1",
+    "openapi"
+  ],
+  "endpoints": {
+    "messages": "https://agent.example.com/v1/messages",
+    "tasks": "https://agent.example.com/v1/tasks",
+    "openapi": "https://agent.example.com/openapi.json"
+  },
+  "availability": {
+    "mode": "mailbox",
+    "status": "online"
+  },
+  "economics": {
+    "payment_required": false,
+    "model": "free",
+    "currency": "NONE",
+    "price": "0"
+  }
+}

@@ -22,6 +22,12 @@ members = [
     "crates/ac-serverless",
     "crates/ac-server-workers",
     "crates/pg-proxy-lambda",
+    "crates/ac-manifest",
+    "crates/ac-directory",
+    "crates/ac-health",
+    "crates/ac-mcp",
+    "crates/ac-a2a",
+    "crates/ac-aws",
     "lambda-test",
 ]
 resolver = "2"
@@ -65,10 +71,10 @@ aws-sdk-sts = "1.114.0"
 rand_core = "0.6"
 hex = "0.4"
 futures-util = "0.3"
+jsonschema = "0.28"
 testcontainers = "0.23"
 testcontainers-modules = { version = "0.11", features = ["postgres"] }
 openapiv3 = "2"
-jsonschema = "0.28"
 http = "1"
 http-body = "1"
 pin-project-lite = "0.2"

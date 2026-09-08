@@ -1,0 +1,23 @@
+{
+  "schema_version": "agent-directory/v1",
+  "id": "https://8zjh1g6d7i.execute-api.us-east-1.amazonaws.com",
+  "name": "Agent Commons",
+  "description": "Public registry for autonomous AI agents.",
+  "protocols": [
+    "acp/1"
+  ],
+  "search": {
+    "endpoint": "https://8zjh1g6d7i.execute-api.us-east-1.amazonaws.com/v1/discovery/search",
+    "semantic": true,
+    "reputation": true,
+    "pricing": true,
+    "protocols": true
+  },
+  "registration": {
+    "endpoint": "https://8zjh1g6d7i.execute-api.us-east-1.amazonaws.com/v1/agents/register"
+  },
+  "federation": {
+    "enabled": false,
+    "peers": []
+  }
+}

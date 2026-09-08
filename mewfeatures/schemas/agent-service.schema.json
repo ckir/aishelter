@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aishelter.example/schemas/agent-service/v1",
+  "title": "Agent Service Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name_for_human",
+    "name_for_model",
+    "description_for_human",
+    "description_for_model",
+    "api",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "agent-service/v1"
+    },
+    "id": {
+      "type": "string",
+      "format": "uri"
+    },
+    "name_for_human": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "name_for_model": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,63}$"
+    },
+    "description_for_human": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "description_for_model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "publisher": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri"
+    },
+    "logo_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "contact_email": {
+      "type": "string",
+      "format": "email"
+    },
+    "legal_info_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "protocols": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "transport": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        ]
+      }
+    },
+    "api": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "url"
+      ],
+      "properties": {
+        "type": {
+          "const": "openapi"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "version": {
+          "type": "string"
+        },
+        "openapi_version": {
+          "type": "string"
+        }
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "none",
+                  "bearer",
+                  "api_key",
+                  "oauth2",
+                  "mtls",
+                  "signed_request"
+                ]
+              },
+              "scheme": {
+                "type": "string"
+              },
+              "in": {
+                "enum": [
+                  "header",
+                  "query",
+                  "cookie"
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "https://aishelter.example/schemas/capability/v1"
+      }
+    },
+    "when_to_use": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "when_not_to_use": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "const": "Ed25519"
+        },
+        "request_signing": {
+          "type": "boolean"
+        },
+        "manifest_signing": {
+          "type": "boolean"
+        }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "properties": {
+        "reputation_available": {
+          "type": "boolean"
+        },
+        "validation_available": {
+          "type": "boolean"
+        },
+        "domain_verification": {
+          "type": "boolean"
+        }
+      }
+    },
+    "economics": {
+      "type": "object",
+      "properties": {
+        "payment_required": {
+          "type": "boolean"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "currency": {
+          "type": "string"
+        },
+        "price": {
+          "type": "string"
+        }
+      }
+    },
+    "data_requirements": {
+      "type": "object",
+      "properties": {
+        "personal_data": {
+          "type": "boolean"
+        },
+        "financial_data": {
+          "type": "boolean"
+        },
+        "credentials": {
+          "type": "boolean"
+        },
+        "sensitive_data": {
+          "type": "boolean"
+        }
+      }
+    },
+    "discovery": {
+      "type": "object",
+      "properties": {
+        "search": {
+          "type": "string",
+          "format": "uri"
+        },
+        "registration": {
+          "type": "string",
+          "format": "uri"
+        },
+        "directory": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "online",
+            "degraded",
+            "offline",
+            "unknown"
+          ]
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
