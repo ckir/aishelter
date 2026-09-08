@@ -48,11 +48,11 @@ fn build_signed_request(
     path: &str,
     method: &str,
     agent_id: &str,
-    body: Option<&str>,
+    body: Option<String>,
     nonce: &str,
 ) -> Request<Body> {
     let timestamp = Utc::now().timestamp().to_string();
-    let body_str = body.unwrap_or("");
+    let body_str = body.unwrap_or_default();
     let body_hash = hex::encode(Sha256::digest(body_str.as_bytes()));
 
     // Build the string to sign
@@ -217,7 +217,7 @@ async fn nonce_valid_accepted() {
         &format!("/v1/agents/{agent_id}/card"),
         "PUT",
         &agent_id,
-        Some(&body_str),
+        Some(body_str),
         nonce,
     );
 
@@ -252,7 +252,7 @@ async fn nonce_reused_rejected() {
         &format!("/v1/agents/{agent_id}/card"),
         "PUT",
         &agent_id,
-        Some(&body_str),
+        Some(body_str),
         nonce,
     );
     let _resp1 = app.request(req1).await;
@@ -268,7 +268,7 @@ async fn nonce_reused_rejected() {
         &format!("/v1/agents/{agent_id}/card"),
         "PUT",
         &agent_id,
-        Some(&body_str2),
+        Some(body_str2),
         nonce,
     );
     let resp2 = app.request(req2).await;
