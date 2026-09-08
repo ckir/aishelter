@@ -9,6 +9,7 @@ mod adversarial;
 mod discovery;
 mod harness;
 mod mailbox;
+mod middleware;
 mod openapi;
 mod registry;
 mod reputation;
