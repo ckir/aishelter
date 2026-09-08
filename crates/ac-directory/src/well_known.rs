@@ -20,7 +20,7 @@ pub fn routes(pool: SharedPool) -> Router {
 }
 
 #[derive(Serialize)]
-struct AgentServiceResponse {
+pub struct AgentServiceResponse {
     schema_version: String,
     id: String,
     name_for_human: String,
@@ -63,7 +63,7 @@ pub async fn agent_service_handler(_state: State<SharedPool>) -> Json<AgentServi
 }
 
 #[derive(Serialize)]
-struct AgentDirectoryResponse {
+pub struct AgentDirectoryResponse {
     schema_version: String,
     id: String,
     name: String,
@@ -112,7 +112,7 @@ pub async fn agent_directory_handler(_state: State<SharedPool>) -> Json<AgentDir
 }
 
 #[derive(Serialize)]
-struct AgentCardResponse {
+pub struct AgentCardResponse {
     schema_version: String,
     agent_id: String,
     name: String,

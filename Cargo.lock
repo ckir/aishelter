@@ -55,11 +55,15 @@ dependencies = [
  "ac-types",
  "axum",
  "chrono",
+ "hex",
+ "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "sqlx",
  "thiserror",
  "tracing",
+ "url",
 ]
 
 [[package]]
