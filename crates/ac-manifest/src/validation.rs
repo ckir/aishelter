@@ -33,9 +33,8 @@ pub enum ManifestValidationError {
 /// Returns [`ManifestValidationError`] if the JSON is invalid or fails
 /// schema validation.
 pub fn validate_service_manifest(json: &str) -> Result<(), ManifestValidationError> {
-    let value: serde_json::Value = serde_json::from_str(json).map_err(|e| {
-        ManifestValidationError::InvalidJson(e.to_string())
-    })?;
+    let value: serde_json::Value = serde_json::from_str(json)
+        .map_err(|e| ManifestValidationError::InvalidJson(e.to_string()))?;
 
     let Some(obj) = value.as_object() else {
         return Err(ManifestValidationError::InvalidJson(
@@ -44,25 +43,17 @@ pub fn validate_service_manifest(json: &str) -> Result<(), ManifestValidationErr
     };
 
     if !obj.contains_key("service_id") {
-        return Err(ManifestValidationError::MissingField(
-            "service_id".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("service_id".to_string()));
     }
     if !obj.contains_key("manifest_url") {
-        return Err(ManifestValidationError::MissingField(
-            "manifest_url".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("manifest_url".to_string()));
     }
     if !obj.contains_key("schema_version") {
-        return Err(ManifestValidationError::MissingField(
-            "schema_version".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("schema_version".to_string()));
     }
 
     let Some(version) = obj.get("schema_version").and_then(|v| v.as_str()) else {
-        return Err(ManifestValidationError::MissingField(
-            "schema_version".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("schema_version".to_string()));
     };
 
     if version != "1.0" {
@@ -83,9 +74,8 @@ pub fn validate_service_manifest(json: &str) -> Result<(), ManifestValidationErr
 /// Returns [`ManifestValidationError`] if the JSON is invalid or fails
 /// schema validation.
 pub fn validate_directory_manifest(json: &str) -> Result<(), ManifestValidationError> {
-    let value: serde_json::Value = serde_json::from_str(json).map_err(|e| {
-        ManifestValidationError::InvalidJson(e.to_string())
-    })?;
+    let value: serde_json::Value = serde_json::from_str(json)
+        .map_err(|e| ManifestValidationError::InvalidJson(e.to_string()))?;
 
     let Some(obj) = value.as_object() else {
         return Err(ManifestValidationError::InvalidJson(
@@ -94,25 +84,17 @@ pub fn validate_directory_manifest(json: &str) -> Result<(), ManifestValidationE
     };
 
     if !obj.contains_key("directory_id") {
-        return Err(ManifestValidationError::MissingField(
-            "directory_id".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("directory_id".to_string()));
     }
     if !obj.contains_key("manifest_url") {
-        return Err(ManifestValidationError::MissingField(
-            "manifest_url".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("manifest_url".to_string()));
     }
     if !obj.contains_key("schema_version") {
-        return Err(ManifestValidationError::MissingField(
-            "schema_version".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("schema_version".to_string()));
     }
 
     let Some(version) = obj.get("schema_version").and_then(|v| v.as_str()) else {
-        return Err(ManifestValidationError::MissingField(
-            "schema_version".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("schema_version".to_string()));
     };
 
     if version != "1.0" {
@@ -133,9 +115,8 @@ pub fn validate_directory_manifest(json: &str) -> Result<(), ManifestValidationE
 /// Returns [`ManifestValidationError`] if the JSON is invalid or fails
 /// schema validation.
 pub fn validate_agent_card(json: &str) -> Result<(), ManifestValidationError> {
-    let value: serde_json::Value = serde_json::from_str(json).map_err(|e| {
-        ManifestValidationError::InvalidJson(e.to_string())
-    })?;
+    let value: serde_json::Value = serde_json::from_str(json)
+        .map_err(|e| ManifestValidationError::InvalidJson(e.to_string()))?;
 
     let Some(obj) = value.as_object() else {
         return Err(ManifestValidationError::InvalidJson(
@@ -144,9 +125,7 @@ pub fn validate_agent_card(json: &str) -> Result<(), ManifestValidationError> {
     };
 
     if !obj.contains_key("agent_id") {
-        return Err(ManifestValidationError::MissingField(
-            "agent_id".to_string(),
-        ));
+        return Err(ManifestValidationError::MissingField("agent_id".to_string()));
     }
     if !obj.contains_key("name") {
         return Err(ManifestValidationError::MissingField("name".to_string()));

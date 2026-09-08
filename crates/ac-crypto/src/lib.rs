@@ -5,4 +5,4 @@ pub mod nonce;
 /// Request signing and verification.
 pub mod signature;
 
-pub use keypair::{public_key_from_hex, AgentKeypair};
+pub use keypair::{AgentKeypair, public_key_from_hex};

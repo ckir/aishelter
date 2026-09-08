@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::Capability;
+use serde::{Deserialize, Serialize};
 
 /// Agent Card (matches agent.schema.json and OpenAPI AgentCard schema)
 #[derive(Debug, Clone, Serialize, Deserialize)]

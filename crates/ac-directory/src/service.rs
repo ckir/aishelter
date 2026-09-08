@@ -1,20 +1,35 @@
-use ac_db::pool::SharedPool;
-use ac_manifest::validation::validate_service_manifest;
+//! Service and directory management layer.
+//!
+//! Provides CRUD operations for service manifests and directory manifests,
+//! backed by PostgreSQL.  Services register their manifests, directories
+//! aggregate them, and both can be refreshed to re-fetch from source URLs.
+
+use ac_manifest::validation::{validate_directory_manifest, validate_service_manifest};
 use ac_types::error::AcError;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use sqlx::PgPool;
+use thiserror::Error;
 use tracing::{error, info, warn};
 
-#[derive(Debug, thiserror::Error)]
+/// Directory-layer errors specific to service and directory registration.
+#[derive(Debug, Error)]
 pub enum ServiceError {
+    /// The requested service or directory was not found.
     #[error("not found: {0}")]
     NotFound(String),
+
+    /// The manifest JSON failed validation.
     #[error("invalid manifest: {0}")]
     InvalidManifest(String),
+
+    /// Fetching the manifest from the source URL failed.
     #[error("fetch error: {0}")]
     FetchError(String),
-    #[error("duplicate: {0}")]
+
+    /// A duplicate service or directory was registered.
+    #[error("duplicate registration: {0}")]
     Duplicate(String),
 }
 
@@ -22,199 +37,294 @@ impl From<ServiceError> for AcError {
     fn from(err: ServiceError) -> Self {
         match err {
             ServiceError::NotFound(msg) => AcError::AgentNotFound(msg),
-            ServiceError::InvalidManifest(msg) => AcError::Database(format!("invalid manifest: {msg}")),
+            ServiceError::InvalidManifest(msg) => {
+                AcError::Database(format!("invalid manifest: {msg}"))
+            }
             ServiceError::FetchError(msg) => AcError::Internal(format!("fetch error: {msg}")),
             ServiceError::Duplicate(msg) => AcError::DuplicateRegistration(msg),
         }
     }
 }
 
+/// Database row for a registered service manifest.
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct ServiceManifestRow {
+pub struct ServiceRow {
     pub service_id: String,
     pub manifest_url: String,
-    pub manifest_json: serde_json::Value,
+    pub manifest_json: String,
     pub manifest_sha256: String,
     pub schema_version: String,
     pub status: String,
     pub fetched_at: Option<chrono::DateTime<Utc>>,
     pub updated_at: chrono::DateTime<Utc>,
-    pub last_success_at: Option<chrono::DateTime<Utc>>,
-    pub last_failure_at: Option<chrono::DateTime<Utc>>,
-    pub failure_count: i32,
+    pub created_at: chrono::DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ServiceHealth {
+/// Database row for a registered directory manifest.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DirectoryRow {
+    pub directory_id: String,
+    pub manifest_url: String,
+    pub manifest_json: String,
+    pub manifest_sha256: String,
+    pub schema_version: String,
     pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_checked: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub latency_ms: Option<i64>,
+    pub updated_at: chrono::DateTime<Utc>,
+    pub created_at: chrono::DateTime<Utc>,
 }
 
+/// Service layer for service and directory registration.
 pub struct DirectoryService {
-    pool: SharedPool,
+    pool: PgPool,
 }
 
 impl DirectoryService {
-    pub fn new(pool: SharedPool) -> Self {
+    /// Create a new directory service with the given database pool.
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// Register a new service manifest.
+    ///
+    /// Validates the manifest JSON, computes the SHA-256 digest, and
+    /// inserts a row into the `services` table.  Returns the stored row.
     pub async fn register_service(
         &self,
+        service_id: &str,
         manifest_url: &str,
-    ) -> Result<(String, String), ServiceError> {
-        info!(url = %manifest_url, "registering service");
+        manifest_json: &str,
+    ) -> Result<ServiceRow, ServiceError> {
+        info!(service_id = %service_id, "registering service");
 
-        let client = reqwest::Client::new();
-        let response = client.get(manifest_url).send().await.map_err(|e| {
-            error!(error = %e, url = %manifest_url, "failed to fetch manifest");
-            ServiceError::FetchError(format!("failed to fetch {}: {e}", manifest_url))
+        validate_service_manifest(manifest_json).map_err(|e| {
+            ServiceError::InvalidManifest(format!("schema validation failed: {e:?}"))
         })?;
 
-        if !response.status().is_success() {
-            return Err(ServiceError::FetchError(format!(
-                "manifest at {} returned {}", manifest_url, response.status()
-            )));
-        }
+        let manifest_sha256 = format!("{:x}", Sha256::digest(manifest_json.as_bytes()));
+        let schema_version = extract_schema_version(manifest_json)?;
+        let now = Utc::now();
 
-        let manifest_json = response.text().await.map_err(|e| {
-            ServiceError::FetchError(format!("failed to read body: {e}"))
-        })?;
-
-        validate_service_manifest(&manifest_json).map_err(|e| {
-            ServiceError::InvalidManifest(format!("validation failed: {e:?}"))
-        })?;
-
-        let manifest_value: serde_json::Value = serde_json::from_str(&manifest_json)
-            .map_err(|e| ServiceError::InvalidManifest(format!("parse error: {e}")))?;
-
-        let service_id = manifest_value.get("id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| ServiceError::InvalidManifest("missing id field".to_string()))?
-            .to_string();
-
-        let schema_version = manifest_value.get("schema_version")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| ServiceError::InvalidManifest("missing schema_version".to_string()))?
-            .to_string();
-
-        let manifest_sha256 = hex::encode(Sha256::digest(manifest_json.as_bytes()));
-
-        sqlx::query!(
+        let row = sqlx::query_as::<_, ServiceRow>(
             r#"
-            INSERT INTO service_manifests (service_id, manifest_url, manifest_json, manifest_sha256, schema_version)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (service_id) DO UPDATE SET
-                manifest_url = EXCLUDED.manifest_url,
-                manifest_json = EXCLUDED.manifest_json,
-                manifest_sha256 = EXCLUDED.manifest_sha256,
-                schema_version = EXCLUDED.schema_version,
-                updated_at = NOW(),
-                fetched_at = NOW(),
-                failure_count = 0
+            INSERT INTO services
+                (service_id, manifest_url, manifest_json, manifest_sha256, schema_version, status, fetched_at, updated_at, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING service_id, manifest_url, manifest_json, manifest_sha256, schema_version, status, fetched_at, updated_at, created_at
             "#,
-            service_id,
-            manifest_url,
-            manifest_json as _,
-            manifest_sha256,
-            schema_version,
         )
-        .execute(&*self.pool)
+        .bind(service_id)
+        .bind(manifest_url)
+        .bind(manifest_json)
+        .bind(&manifest_sha256)
+        .bind(&schema_version)
+        .bind("ACTIVE")
+        .bind(now)
+        .bind(now)
+        .bind(now)
+        .fetch_optional(&self.pool)
         .await
         .map_err(|e| {
-            error!(error = %e, service_id = %service_id, "failed to register service");
-            ServiceError::FetchError(format!("database error: {e}"))
+            error!(error = %e, service_id = %service_id, "failed to insert service");
+            ServiceError::Duplicate(format!("service {service_id} already registered: {e}"))
+        })?
+        .ok_or_else(|| {
+            ServiceError::Duplicate(format!("service {service_id} already registered"))
         })?;
 
-        info!(service_id = %service_id, "service registered");
-        Ok((service_id, "ACTIVE".to_string()))
+        info!(service_id = %service_id, "service registered successfully");
+        Ok(row)
     }
 
-    pub async fn get_service(&self, service_id: &str) -> Result<ServiceManifestRow, ServiceError> {
-        let row = sqlx::query_as!(
-            ServiceManifestRow,
+    /// Get a service manifest by ID.
+    pub async fn get_service(&self, service_id: &str) -> Result<ServiceRow, ServiceError> {
+        info!(service_id = %service_id, "looking up service");
+
+        let row = sqlx::query_as::<_, ServiceRow>(
             r#"
-            SELECT service_id, manifest_url, manifest_json as "manifest_json: serde_json::Value",
-                   manifest_sha256, schema_version, status, fetched_at, updated_at,
-                   last_success_at, last_failure_at, failure_count
-            FROM service_manifests
+            SELECT service_id, manifest_url, manifest_json, manifest_sha256,
+                   schema_version, status, fetched_at, updated_at, created_at
+            FROM services
             WHERE service_id = $1
             "#,
-            service_id,
         )
-        .fetch_optional(&*self.pool)
+        .bind(service_id)
+        .fetch_optional(&self.pool)
         .await
-        .map_err(|e| ServiceError::FetchError(format!("database error: {e}")))?;
+        .map_err(|e| {
+            error!(error = %e, service_id = %service_id, "database error looking up service");
+            ServiceError::NotFound(format!("service {service_id}: {e}"))
+        })?
+        .ok_or_else(|| ServiceError::NotFound(format!("service {service_id}")))?;
 
-        row.ok_or_else(|| ServiceError::NotFound(service_id.to_string()))
+        Ok(row)
     }
 
-    pub async fn refresh_service(&self, service_id: &str) -> Result<(), ServiceError> {
+    /// Refresh a service manifest by re-fetching from its source URL.
+    pub async fn refresh_service(&self, service_id: &str) -> Result<ServiceRow, ServiceError> {
+        info!(service_id = %service_id, "refreshing service manifest");
+
         let existing = self.get_service(service_id).await?;
 
         let client = reqwest::Client::new();
         let response = client.get(&existing.manifest_url).send().await.map_err(|e| {
+            error!(error = %e, url = %existing.manifest_url, "failed to fetch manifest");
             ServiceError::FetchError(format!("failed to fetch {}: {e}", existing.manifest_url))
         })?;
 
         if !response.status().is_success() {
-            sqlx::query!(
-                "UPDATE service_manifests SET last_failure_at = NOW(), failure_count = failure_count + 1 WHERE service_id = $1",
-                service_id,
-            )
-            .execute(&*self.pool)
-            .await
-            .map_err(|e| ServiceError::FetchError(format!("database error: {e}")))?;
-
-            return Err(ServiceError::FetchError(format!("HTTP {}", response.status())));
+            warn!(
+                status = %response.status(),
+                url = %existing.manifest_url,
+                "manifest fetch returned non-success status"
+            );
+            return Err(ServiceError::FetchError(format!(
+                "manifest at {} returned HTTP {}",
+                existing.manifest_url,
+                response.status()
+            )));
         }
 
         let manifest_json = response.text().await.map_err(|e| {
-            ServiceError::FetchError(format!("failed to read body: {e}"))
+            error!(error = %e, url = %existing.manifest_url, "failed to read manifest body");
+            ServiceError::FetchError(format!("failed to read manifest body: {e}"))
         })?;
 
         validate_service_manifest(&manifest_json).map_err(|e| {
-            ServiceError::InvalidManifest(format!("validation failed: {e:?}"))
+            ServiceError::InvalidManifest(format!("schema validation failed: {e:?}"))
         })?;
 
-        let manifest_sha256 = hex::encode(Sha256::digest(manifest_json.as_bytes()));
+        let manifest_sha256 = format!("{:x}", Sha256::digest(manifest_json.as_bytes()));
+        let schema_version = extract_schema_version(&manifest_json)?;
+        let now = Utc::now();
 
-        sqlx::query!(
+        let row = sqlx::query_as::<_, ServiceRow>(
             r#"
-            UPDATE service_manifests
-            SET manifest_json = $2, manifest_sha256 = $3, updated_at = NOW(),
-                fetched_at = NOW(), last_success_at = NOW(), failure_count = 0
+            UPDATE services
+            SET manifest_json = $2,
+                manifest_sha256 = $3,
+                schema_version = $4,
+                fetched_at = $5,
+                updated_at = $6
             WHERE service_id = $1
+            RETURNING service_id, manifest_url, manifest_json, manifest_sha256, schema_version, status, fetched_at, updated_at, created_at
             "#,
-            service_id,
-            manifest_json as _,
-            manifest_sha256,
         )
-        .execute(&*self.pool)
+        .bind(service_id)
+        .bind(&manifest_json)
+        .bind(&manifest_sha256)
+        .bind(&schema_version)
+        .bind(now)
+        .bind(now)
+        .fetch_one(&self.pool)
         .await
-        .map_err(|e| ServiceError::FetchError(format!("database error: {e}")))?;
+        .map_err(|e| {
+            error!(error = %e, service_id = %service_id, "failed to update service after refresh");
+            ServiceError::FetchError(format!("failed to persist refreshed manifest: {e}"))
+        })?;
 
-        Ok(())
+        info!(service_id = %service_id, "service manifest refreshed");
+        Ok(row)
     }
 
-    pub async fn get_service_health(&self, service_id: &str) -> Result<ServiceHealth, ServiceError> {
-        let row = self.get_service(service_id).await?;
+    /// List all registered services, ordered by created_at descending.
+    pub async fn list_services(&self) -> Result<Vec<ServiceRow>, ServiceError> {
+        info!("listing all services");
 
-        let status = if row.failure_count > 3 {
-            "degraded"
-        } else if row.status == "ACTIVE" {
-            "online"
-        } else {
-            "unknown"
-        };
+        let rows = sqlx::query_as::<_, ServiceRow>(
+            r#"
+            SELECT service_id, manifest_url, manifest_json, manifest_sha256,
+                   schema_version, status, fetched_at, updated_at, created_at
+            FROM services
+            ORDER BY created_at DESC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "database error listing services");
+            ServiceError::FetchError(format!("failed to list services: {e}"))
+        })?;
 
-        Ok(ServiceHealth {
-            status: status.to_string(),
-            last_checked: row.fetched_at.map(|t| t.to_rfc3339()),
-            latency_ms: None,
-        })
+        info!(count = rows.len(), "services listed");
+        Ok(rows)
     }
+
+    /// Register a new directory manifest.
+    pub async fn register_directory(
+        &self,
+        directory_id: &str,
+        manifest_url: &str,
+        manifest_json: &str,
+    ) -> Result<DirectoryRow, ServiceError> {
+        info!(directory_id = %directory_id, "registering directory");
+
+        validate_directory_manifest(manifest_json).map_err(|e| {
+            ServiceError::InvalidManifest(format!("schema validation failed: {e:?}"))
+        })?;
+
+        let manifest_sha256 = format!("{:x}", Sha256::digest(manifest_json.as_bytes()));
+        let schema_version = extract_schema_version(manifest_json)?;
+        let now = Utc::now();
+
+        let row = sqlx::query_as::<_, DirectoryRow>(
+            r#"
+            INSERT INTO directories
+                (directory_id, manifest_url, manifest_json, manifest_sha256, schema_version, status, updated_at, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING directory_id, manifest_url, manifest_json, manifest_sha256, schema_version, status, updated_at, created_at
+            "#,
+        )
+        .bind(directory_id)
+        .bind(manifest_url)
+        .bind(manifest_json)
+        .bind(&manifest_sha256)
+        .bind(&schema_version)
+        .bind("ACTIVE")
+        .bind(now)
+        .bind(now)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| {
+            error!(error = %e, directory_id = %directory_id, "failed to insert directory");
+            ServiceError::Duplicate(format!("directory {directory_id} already registered: {e}"))
+        })?
+        .ok_or_else(|| ServiceError::Duplicate(format!("directory {directory_id} already registered")))?;
+
+        info!(directory_id = %directory_id, "directory registered successfully");
+        Ok(row)
+    }
+
+    /// List all registered directories, ordered by created_at descending.
+    pub async fn list_directories(&self) -> Result<Vec<DirectoryRow>, ServiceError> {
+        info!("listing all directories");
+
+        let rows = sqlx::query_as::<_, DirectoryRow>(
+            r#"
+            SELECT directory_id, manifest_url, manifest_json, manifest_sha256,
+                   schema_version, status, updated_at, created_at
+            FROM directories
+            ORDER BY created_at DESC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "database error listing directories");
+            ServiceError::FetchError(format!("failed to list directories: {e}"))
+        })?;
+
+        info!(count = rows.len(), "directories listed");
+        Ok(rows)
+    }
+}
+
+/// Extract the `schema_version` field from a JSON string.
+fn extract_schema_version(json: &str) -> Result<String, ServiceError> {
+    let value: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| ServiceError::InvalidManifest(e.to_string()))?;
+    value
+        .get("schema_version")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| ServiceError::InvalidManifest("missing field: schema_version".to_string()))
 }

@@ -88,8 +88,8 @@ pub fn verify_manifest_signature<T: Serialize>(
     let verifying_key = public_key_from_hex(public_key_hex)
         .map_err(|e| ManifestSignatureError::VerifyError(e.to_string()))?;
 
-    let sig_bytes = hex::decode(signature)
-        .map_err(|e| ManifestSignatureError::VerifyError(e.to_string()))?;
+    let sig_bytes =
+        hex::decode(signature).map_err(|e| ManifestSignatureError::VerifyError(e.to_string()))?;
 
     let sig = Signature::try_from(sig_bytes.as_slice())
         .map_err(|e| ManifestSignatureError::VerifyError(e.to_string()))?;

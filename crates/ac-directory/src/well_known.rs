@@ -97,7 +97,8 @@ pub async fn agent_directory_handler(_state: State<SharedPool>) -> Json<AgentDir
         schema_version: "agent-directory/v1".to_string(),
         id: "https://localhost/.well-known/agent-directory.json".to_string(),
         name: "Agent Commons Directory".to_string(),
-        description: "Agent Commons service directory for agent discovery and registration".to_string(),
+        description: "Agent Commons service directory for agent discovery and registration"
+            .to_string(),
         protocols: vec!["acp/1".to_string()],
         search: SearchInfo {
             endpoint: "/v1/discovery/search".to_string(),
@@ -105,9 +106,7 @@ pub async fn agent_directory_handler(_state: State<SharedPool>) -> Json<AgentDir
             reputation: Some(true),
             protocols: Some(true),
         },
-        registration: RegistrationInfo {
-            endpoint: "/v1/agents/register".to_string(),
-        },
+        registration: RegistrationInfo { endpoint: "/v1/agents/register".to_string() },
     })
 }
 
@@ -136,7 +135,8 @@ pub async fn agent_card_handler(_state: State<SharedPool>) -> Json<AgentCardResp
         schema_version: "agent/v1".to_string(),
         agent_id: "agent_local".to_string(),
         name: "Agent Commons".to_string(),
-        description: "Agent Commons service directory for agent discovery and registration".to_string(),
+        description: "Agent Commons service directory for agent discovery and registration"
+            .to_string(),
         version: "1.0".to_string(),
         capabilities: vec![],
         protocols: vec!["acp/1".to_string()],

@@ -130,9 +130,8 @@ pub async fn register_service_handler(
 ) -> Result<Json<RegisterServiceResponse>, ac_types::error::AcError> {
     let pool = pool.load();
     let service = DirectoryService::new(pool);
-    let row = service
-        .register_service(&req.service_id, &req.manifest_url, &req.manifest_json)
-        .await?;
+    let row =
+        service.register_service(&req.service_id, &req.manifest_url, &req.manifest_json).await?;
 
     Ok(Json(RegisterServiceResponse {
         service_id: row.service_id,
@@ -302,7 +301,11 @@ pub async fn get_capabilities_handler(
                         capabilities.push(CapabilityEntry {
                             service_id: row.service_id.clone(),
                             name: id.to_string(),
-                            version: cap.get("version").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                            version: cap
+                                .get("version")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string(),
                         });
                     }
                 }
@@ -310,8 +313,5 @@ pub async fn get_capabilities_handler(
         }
     }
 
-    Ok(Json(CapabilitiesResponse {
-        capabilities,
-        protocol: "acp/1".to_string(),
-    }))
+    Ok(Json(CapabilitiesResponse { capabilities, protocol: "acp/1".to_string() }))
 }
