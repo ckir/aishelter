@@ -1,14 +1,9 @@
-use chrono::TimeZone;
-use hex::encode as hex_encode;
-use hmac::{Hmac, Mac};
+use aws_rds_signer::Signer;
 use lambda_runtime::{Error, LambdaEvent, run, service_fn};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
-use std::time::{SystemTime, UNIX_EPOCH};
-use tokio_postgres::{Client, NoTls, Row};
+use sqlx::{Column, Row, postgres::PgPoolOptions};
 use tracing::info;
-use url::Url;
 
 #[derive(Deserialize)]
 struct QueryRequest {
@@ -25,70 +20,62 @@ struct QueryResponse {
 
 #[derive(Clone)]
 struct AppState {
+    database_url: String,
+    iam_auth: bool,
     host: String,
     port: u16,
-    dbname: String,
     user: String,
-    password: String,
-    iam_auth: bool,
 }
 
 impl AppState {
     fn from_env() -> Self {
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgresql://pgadmin:password@localhost:5432/pgproxy".to_string());
-        let url = Url::parse(&database_url).expect("Invalid DATABASE_URL");
         let iam_auth = std::env::var("RDS_IAM_AUTH").map(|v| v == "true").unwrap_or(false);
-        let password = url.password().unwrap_or("").to_string();
 
-        Self {
-            host: url.host_str().unwrap_or("localhost").to_string(),
-            port: url.port().unwrap_or(5432),
-            dbname: url.path().trim_start_matches('/').to_string(),
-            user: url.username().to_string(),
-            password,
-            iam_auth,
-        }
+        // Parse host/port/user from URL for IAM token generation
+        let url = url::Url::parse(&database_url).unwrap_or_else(|_| {
+            url::Url::parse("postgresql://postgres@localhost:5432/postgres").unwrap()
+        });
+        let host = url.host_str().unwrap_or("localhost").to_string();
+        let port = url.port().unwrap_or(5432);
+        let user = url.username().to_string();
+
+        Self { database_url, iam_auth, host, port, user }
     }
 
-    async fn connect(&self) -> Result<Client, tokio_postgres::Error> {
-        info!("Connecting to RDS");
-        let password = if self.iam_auth {
+    async fn get_pool(&self) -> Result<sqlx::PgPool, Error> {
+        let db_url = if self.iam_auth {
             info!("Generating RDS IAM auth token");
-            generate_rds_token(&self.user, &self.host, self.port).unwrap_or_else(|e| {
-                tracing::warn!("Failed to generate IAM token: {}", e);
-                self.password.clone()
-            })
+            let signer = Signer::builder()
+                .host(self.host.clone())
+                .port(self.port)
+                .user(self.user.clone())
+                .region("us-east-1".to_string())
+                .build();
+
+            let token = signer.fetch_token().await.expect("Failed to generate auth token");
+
+            // Replace password in URL with IAM token
+            if let Ok(mut url) = url::Url::parse(&self.database_url) {
+                url.set_password(Some(&token)).ok();
+                url.to_string()
+            } else {
+                self.database_url.clone()
+            }
         } else {
-            self.password.clone()
+            self.database_url.clone()
         };
 
-        let conn_str = format!(
-            "host={} port={} dbname={} user={} password={} sslmode=require",
-            self.host, self.port, self.dbname, self.user, password
-        );
+        info!("Creating connection pool");
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&db_url)
+            .await
+            .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
-        let config = conn_str.parse::<tokio_postgres::Config>()?;
-        let (client, connection) = config.connect(NoTls).await?;
-
-        // Spawn the connection driver
-        tokio::spawn(async move {
-            if let Err(e) = connection.await {
-                tracing::warn!("Connection error: {}", e);
-            }
-        });
-
-        Ok(client)
+        Ok(pool)
     }
-}
-
-fn row_to_json(row: &Row) -> Value {
-    let mut map = serde_json::Map::new();
-    for (i, column) in row.columns().iter().enumerate() {
-        let value: Value = row.try_get(i).unwrap_or(Value::Null);
-        map.insert(column.name().to_string(), value);
-    }
-    Value::Object(map)
 }
 
 async fn handler(event: LambdaEvent<Value>, state: &AppState) -> Result<Value, Error> {
@@ -118,125 +105,36 @@ async fn handle_query(payload: &Value, state: &AppState) -> Result<Value, Error>
 
     info!("Executing query: {}", query_req.sql);
 
-    let client = match state.connect().await {
-        Ok(c) => c,
+    let pool = match state.get_pool().await {
+        Ok(p) => p,
         Err(e) => return Ok(json!({"error": format!("Database connection failed: {}", e)})),
     };
 
-    // Convert params to tokio-postgres types
-    let params: Vec<Box<dyn tokio_postgres::types::ToSql + Sync>> = query_req
-        .params
-        .iter()
-        .map(|v| -> Box<dyn tokio_postgres::types::ToSql + Sync> {
-            match v {
-                Value::Null => Box::new(None::<String>),
-                Value::Bool(b) => Box::new(*b),
-                Value::Number(n) => {
-                    if let Some(i) = n.as_i64() {
-                        Box::new(i)
-                    } else if let Some(f) = n.as_f64() {
-                        Box::new(f)
-                    } else {
-                        Box::new(n.to_string())
-                    }
-                }
-                Value::String(s) => Box::new(s.clone()),
-                Value::Array(_) | Value::Object(_) => Box::new(v.to_string()),
-            }
-        })
-        .collect();
+    // Build query with params
+    let mut query = sqlx::query(&query_req.sql);
+    for param in &query_req.params {
+        query = query.bind(param.to_string());
+    }
 
-    let param_refs: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> =
-        params.iter().map(|p| p.as_ref()).collect();
-
-    let rows = match client.query(&query_req.sql, &param_refs).await {
+    let rows = match query.fetch_all(&pool).await {
         Ok(rows) => rows,
         Err(e) => return Ok(json!({"error": format!("Query failed: {}", e)})),
     };
 
-    Ok(json!(QueryResponse { rows: rows.iter().map(row_to_json).collect(), row_count: rows.len() }))
-}
+    let rows: Vec<Value> = rows
+        .iter()
+        .map(|row| {
+            let mut map = serde_json::Map::new();
+            for column in row.columns() {
+                let value: Value = row.try_get(column.ordinal()).unwrap_or(Value::Null);
+                map.insert(column.name().to_string(), value);
+            }
+            Value::Object(map)
+        })
+        .collect();
 
-fn generate_rds_token(
-    user: &str,
-    host: &str,
-    port: u16,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-    // Simplified RDS IAM token generation
-    // The password for PostgreSQL IAM auth is the full URL: https://host:port/?Action=connect&DBUser=user&...
-    use std::env;
-    let region = "us-east-1";
-    let algorithm = "AWS4-HMAC-SHA256";
-    let expires = "900";
-
-    let now = SystemTime::now();
-    let timestamp = now.duration_since(UNIX_EPOCH)?.as_secs();
-    let date = chrono::Utc.timestamp_opt(timestamp as i64, 0).single().unwrap();
-    let date_stamp = date.format("%Y%m%d").to_string();
-    let amz_date = date.format("%Y%m%dT%H%M%SZ").to_string();
-
-    let access_key = env::var("AWS_ACCESS_KEY_ID").map_err(|_| "No AWS_ACCESS_KEY_ID")?;
-    let secret_key = env::var("AWS_SECRET_ACCESS_KEY").map_err(|_| "No AWS_SECRET_ACCESS_KEY")?;
-
-    let credential = format!("{}/{}/{}/rds-db/aws4_request", access_key, date_stamp, region);
-
-    // Build the canonical request
-    let canonical_uri = "/";
-    let canonical_query = format!(
-        "Action=connect&DBUser={}&X-Amz-Algorithm={}&X-Amz-Credential={}&X-Amz-Date={}&X-Amz-Expires={}&X-Amz-SignedHeaders=host",
-        user,
-        algorithm,
-        url_encode(&credential),
-        amz_date,
-        expires
-    );
-
-    let canonical_headers = format!("host:{}:{}\n", host, port);
-    let signed_headers = "host";
-    let payload_hash = hex_encode(Sha256::digest(b""));
-
-    let canonical_request = format!(
-        "GET\n{}\n{}\n{}\n{}\n{}",
-        canonical_uri, canonical_query, canonical_headers, signed_headers, payload_hash
-    );
-
-    // String to sign
-    let credential_scope = format!("{}/{}/rds-db/aws4_request", date_stamp, region);
-    let string_to_sign = format!(
-        "{}\n{}\n{}\n{}",
-        algorithm,
-        timestamp,
-        credential_scope,
-        hex_encode(Sha256::digest(canonical_request.as_bytes()))
-    );
-
-    // Sign
-    let k_date = hmac_sha256(format!("AWS4{}", secret_key).as_bytes(), &date_stamp);
-    let k_region = hmac_sha256(&k_date, region);
-    let k_service = hmac_sha256(&k_region, "rds-db");
-    let k_signing = hmac_sha256(&k_service, "aws4_request");
-    let signature = hmac_sha256(&k_signing, &string_to_sign);
-
-    // Build the full token URL
-    let token = format!(
-        "https://{}:{}/?{}&X-Amz-Signature={}",
-        host,
-        port,
-        canonical_query,
-        hex_encode(signature)
-    );
-
-    Ok(token)
-}
-
-fn url_encode(s: &str) -> String {
-    s.replace('/', "%2F").replace('+', "%2B")
-}
-
-fn hmac_sha256(key: &[u8], data: &str) -> Vec<u8> {
-    let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("HMAC can take key");
-    mac.update(data.as_bytes());
-    mac.finalize().into_bytes().to_vec()
+    let row_count = rows.len();
+    Ok(json!(QueryResponse { rows, row_count }))
 }
 
 #[tokio::main]
