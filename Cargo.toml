@@ -23,11 +23,6 @@ members = [
     "crates/ac-server-workers",
     "crates/pg-proxy-lambda",
     "crates/ac-manifest",
-    "crates/ac-directory",
-    "crates/ac-health",
-    "crates/ac-mcp",
-    "crates/ac-a2a",
-    "crates/ac-aws",
     "lambda-test",
 ]
 resolver = "2"

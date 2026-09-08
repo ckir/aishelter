@@ -11,7 +11,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
-hex = "0.4"
+hex = { workspace = true }
 url = { workspace = true }
 chrono = { workspace = true }
-jsonschema = "0.28"
+jsonschema = { workspace = true }
