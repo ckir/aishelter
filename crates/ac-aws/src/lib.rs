@@ -1,1 +1,1 @@
-// Placeholder stub for ac-aws workspace resolution
+// Placeholder stub for ac-aws workspace resolution 
