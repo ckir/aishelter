@@ -1,0 +1,7 @@
+{
+  "endpoint": {
+    "hostname": "pg-proxy-instance.ce5gog82gxo1.us-east-1.rds.amazonaws.com",
+    "port": 5432
+  },
+  "region": "us-east-1"
+}
