@@ -1,0 +1,21 @@
+[package]
+name = "ac-health"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[dependencies]
+ac-directory = { path = "../ac-directory" }
+ac-db = { path = "../ac-db" }
+ac-manifest = { path = "../ac-manifest" }
+url = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

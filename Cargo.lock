@@ -3,6 +3,25 @@
 version = 4
 
 [[package]]
+name = "ac-a2a"
+version = "0.1.0"
+dependencies = [
+ "ac-db",
+ "ac-directory",
+ "ac-discovery",
+ "ac-mailbox",
+ "ac-registry",
+ "ac-tasks",
+ "ac-types",
+ "axum",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "ac-api"
 version = "0.3.0"
 dependencies = [
@@ -13,6 +32,10 @@ dependencies = [
  "serde_json",
  "thiserror",
 ]
+
+[[package]]
+name = "ac-aws"
+version = "0.1.0"
 
 [[package]]
 name = "ac-crypto"
@@ -83,6 +106,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ac-health"
+version = "0.1.0"
+dependencies = [
+ "ac-db",
+ "ac-directory",
+ "ac-manifest",
+ "chrono",
+ "hex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "ac-mailbox"
 version = "0.3.0"
 dependencies = [
@@ -116,6 +159,27 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror",
  "url",
+]
+
+[[package]]
+name = "ac-mcp"
+version = "0.1.0"
+dependencies = [
+ "ac-db",
+ "ac-directory",
+ "ac-discovery",
+ "ac-mailbox",
+ "ac-registry",
+ "ac-reputation",
+ "ac-tasks",
+ "ac-types",
+ "ac-validation",
+ "axum",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]

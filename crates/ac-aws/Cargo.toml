@@ -1,0 +1,9 @@
+[package]
+name = "ac-aws"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+description = "AWS SAM deployment template for Agent Commons ACP/1"
+
+# This crate contains only the SAM template and documentation.
+# No Rust code is compiled here.

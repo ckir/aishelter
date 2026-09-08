@@ -1,0 +1,435 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Agent Commons ACP/1 v1.0 AWS serverless deployment
+
+Parameters:
+  DatabaseSecretArn:
+    Type: String
+    Description: ARN of Secrets Manager secret containing DB credentials
+  VpcId:
+    Type: String
+    Description: VPC ID for Lambda functions
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: Subnet IDs for Lambda functions
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: Security group IDs for Lambda functions
+
+Globals:
+  Function:
+    Runtime: provided.al2023
+    Architectures: [arm64]
+    Timeout: 30
+    MemorySize: 1024
+    Tracing: Active
+    Environment:
+      Variables:
+        RUST_LOG: info
+        AC_DATABASE_URL: !Sub "{{resolve:secretsmanager:${DatabaseSecretArn}:SecretString:database_url}}"
+        RDS_IAM_AUTH: "true"
+  Api:
+    TracingEnabled: true
+    EndpointConfiguration: REGIONAL
+
+Resources:
+  # === API Gateway ===
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v1
+      ThrottlingBurstLimit: 1000
+      ThrottlingRateLimit: 500
+
+  # === API Lambda ===
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../
+      Handler: bootstrap
+      VpcConfig:
+        VpcId: !Ref VpcId
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds: !Ref SecurityGroupIds
+      Events:
+        Proxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /{proxy+}
+            Method: ANY
+        WellKnown:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /.well-known/{proxy+}
+            Method: ANY
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref DatabaseSecretArn
+        - Statement:
+            - Effect: Allow
+              Action: rds-db:connect
+              Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:*/pgadmin"
+    Metadata:
+      BuildMethod: makefile
+
+  # === SQS Queues ===
+  TaskDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  TaskQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt TaskDLQ.Arn
+        maxReceiveCount: 5
+
+  MessageDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  MessageQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt MessageDLQ.Arn
+        maxReceiveCount: 5
+
+  ManifestRefreshDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  ManifestRefreshQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ManifestRefreshDLQ.Arn
+        maxReceiveCount: 3
+
+  HealthCheckDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  HealthCheckQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt HealthCheckDLQ.Arn
+        maxReceiveCount: 3
+
+  ReputationUpdateDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  ReputationUpdateQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ReputationUpdateDLQ.Arn
+        maxReceiveCount: 5
+
+  # === Worker Lambda ===
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../
+      Handler: bootstrap
+      VpcConfig:
+        VpcId: !Ref VpcId
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds: !Ref SecurityGroupIds
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt TaskQueue.QueueName
+        - SQSPollerPolicy:
+            QueueName: !GetAtt MessageQueue.QueueName
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ManifestRefreshQueue.QueueName
+        - SQSPollerPolicy:
+            QueueName: !GetAtt HealthCheckQueue.QueueName
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ReputationUpdateQueue.QueueName
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref DatabaseSecretArn
+        - Statement:
+            - Effect: Allow
+              Action: rds-db:connect
+              Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:*/pgadmin"
+      Events:
+        Tasks:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt TaskQueue.Arn
+            BatchSize: 10
+        Messages:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt MessageQueue.Arn
+            BatchSize: 10
+        ManifestRefresh:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ManifestRefreshQueue.Arn
+            BatchSize: 5
+        HealthCheck:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt HealthCheckQueue.Arn
+            BatchSize: 20
+        ReputationUpdate:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ReputationUpdateQueue.Arn
+            BatchSize: 50
+    Metadata:
+      BuildMethod: makefile
+
+  # === EventBridge Schedules ===
+  HealthCheckSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Health checks every 5 minutes
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt HealthCheckQueue.Arn
+          Id: HealthCheckTarget
+
+  ManifestRefreshSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Manifest refresh hourly
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ManifestRefreshQueue.Arn
+          Id: ManifestRefreshTarget
+
+  ReputationMaintenanceSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Reputation maintenance hourly
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ReputationUpdateQueue.Arn
+          Id: ReputationMaintenanceTarget
+
+  TaskExpirySchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Expired task sweep every 5 minutes
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt TaskQueue.Arn
+          Id: TaskExpiryTarget
+
+  MessageExpirySchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Expired message sweep hourly
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt MessageQueue.Arn
+          Id: MessageExpiryTarget
+
+  SecurityAnalysisSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Security/anomaly analysis daily
+      ScheduleExpression: rate(1 day)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt HealthCheckQueue.Arn
+          Id: SecurityAnalysisTarget
+
+  # === SQS Queue Policies for EventBridge ===
+  HealthCheckQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt HealthCheckQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref HealthCheckSchedule
+      Queues:
+        - !Ref HealthCheckQueue
+
+  ManifestRefreshQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt ManifestRefreshQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref ManifestRefreshSchedule
+      Queues:
+        - !Ref ManifestRefreshQueue
+
+  ReputationUpdateQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt ReputationUpdateQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref ReputationMaintenanceSchedule
+      Queues:
+        - !Ref ReputationUpdateQueue
+
+  TaskQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt TaskQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref TaskExpirySchedule
+      Queues:
+        - !Ref TaskQueue
+
+  MessageQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt MessageQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref MessageExpirySchedule
+      Queues:
+        - !Ref MessageQueue
+
+  # === CloudWatch Alarms ===
+  ApiErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: agent-commons-api-errors
+      AlarmDescription: API Lambda 5xx error rate > 1%
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+
+  ApiLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: agent-commons-api-latency
+      AlarmDescription: API Lambda p95 latency > 2s
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 2000
+      ComparisonOperator: GreaterThanThreshold
+
+  WorkerThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: agent-commons-worker-throttles
+      AlarmDescription: Worker Lambda throttles > 0
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WorkerFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+
+  DLQDepthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: agent-commons-dlq-depth
+      AlarmDescription: Any DLQ has messages
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt TaskDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+
+  DBPoolSaturationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: agent-commons-db-pool-saturation
+      AlarmDescription: DB connection pool near saturation
+      Namespace: AgentCommons
+      MetricName: DBPoolSaturation
+      Dimensions:
+        - Name: Service
+          Value: agent-commons
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 0.8
+      ComparisonOperator: GreaterThanThreshold
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/v1/
+  TaskQueueUrl:
+    Value: !Ref TaskQueue
+  MessageQueueUrl:
+    Value: !Ref MessageQueue
+  ManifestRefreshQueueUrl:
+    Value: !Ref ManifestRefreshQueue
+  HealthCheckQueueUrl:
+    Value: !Ref HealthCheckQueue
+  ReputationUpdateQueueUrl:
+    Value: !Ref ReputationUpdateQueue

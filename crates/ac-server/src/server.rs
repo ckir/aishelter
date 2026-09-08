@@ -53,6 +53,8 @@ pub fn create_app(pool: SharedPool, metrics: Metrics, rate_limiter: RateLimiter)
             }),
         )
         .nest("/v1/agents", ac_registry::handler::routes(pool.clone()))
+        .nest("/", ac_directory::well_known::routes(pool.clone()))
+        .nest("/", ac_directory::handler::routes(pool.clone()))
         .nest("/v1/discovery", ac_discovery::handler::routes(pool.clone()))
         .nest("/v1/messages", ac_mailbox::handler::routes(pool.clone()))
         .nest("/v1/tasks", ac_tasks::handler::routes(pool.clone()))

@@ -1,0 +1,22 @@
+[package]
+name = "ac-mcp"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[dependencies]
+ac-types = { path = "../ac-types" }
+ac-db = { path = "../ac-db" }
+ac-directory = { path = "../ac-directory" }
+ac-registry = { path = "../ac-registry" }
+ac-discovery = { path = "../ac-discovery" }
+ac-mailbox = { path = "../ac-mailbox" }
+ac-tasks = { path = "../ac-tasks" }
+ac-validation = { path = "../ac-validation" }
+ac-reputation = { path = "../ac-reputation" }
+axum = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
