@@ -23,6 +23,7 @@ members = [
     "crates/ac-server-workers",
     "crates/pg-proxy-lambda",
     "crates/ac-manifest",
+    "crates/ac-directory",
     "lambda-test",
 ]
 resolver = "2"

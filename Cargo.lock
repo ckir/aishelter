@@ -46,6 +46,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ac-directory"
+version = "0.1.0"
+dependencies = [
+ "ac-crypto",
+ "ac-db",
+ "ac-manifest",
+ "ac-types",
+ "axum",
+ "chrono",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "ac-discovery"
 version = "0.3.0"
 dependencies = [
@@ -78,6 +95,23 @@ dependencies = [
  "tracing",
  "utoipa",
  "uuid",
+]
+
+[[package]]
+name = "ac-manifest"
+version = "0.1.0"
+dependencies = [
+ "ac-crypto",
+ "ac-types",
+ "chrono",
+ "ed25519-dalek",
+ "hex",
+ "jsonschema",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror",
+ "url",
 ]
 
 [[package]]
