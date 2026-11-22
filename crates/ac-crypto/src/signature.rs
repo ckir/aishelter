@@ -80,29 +80,72 @@ impl SignedRequest {
         body: &[u8],
         nonce: &str,
     ) -> Self {
-        // Hash the request body.
-        let body_sha256 = Self::hash_body(body);
-        // Record the current timestamp.
-        let timestamp = chrono::Utc::now().to_rfc3339();
+        Self::sign_at(
+            keypair,
+            agent_id,
+            method,
+            path,
+            body,
+            nonce,
+            &Self::format_timestamp(chrono::Utc::now()),
+        )
+    }
 
-        // Build the canonical message string to sign.
-        let message = format!(
-            "{}\n{}\n{}\n{}\n{}\n{}",
-            agent_id, timestamp, nonce, method, path, body_sha256
-        );
-
-        // Sign the message with the agent's private key.
-        let sig = keypair.signing_key().sign(message.as_bytes());
-
-        Self {
+    /// Like [`sign`](Self::sign) but with an explicit timestamp string.
+    ///
+    /// The signature covers `timestamp` exactly as given, byte for byte.
+    /// Production callers use [`sign`](Self::sign); this exists so tests can
+    /// produce stale or future-dated requests deterministically.
+    pub fn sign_at(
+        keypair: &AgentKeypair,
+        agent_id: &str,
+        method: &str,
+        path: &str,
+        body: &[u8],
+        nonce: &str,
+        timestamp: &str,
+    ) -> Self {
+        let mut req = Self {
             agent_id: agent_id.to_string(),
-            timestamp,
+            timestamp: timestamp.to_string(),
             nonce: nonce.to_string(),
             method: method.to_string(),
             path: path.to_string(),
-            body_sha256,
-            signature: hex::encode(sig.to_bytes()),
-        }
+            body_sha256: Self::hash_body(body),
+            signature: String::new(),
+        };
+        let sig = keypair.signing_key().sign(req.canonical_message().as_bytes());
+        req.signature = hex::encode(sig.to_bytes());
+        req
+    }
+
+    /// The canonical timestamp form clients should emit: RFC 3339, UTC, `Z`
+    /// suffix, whole seconds (for example `2026-11-22T20:30:00Z`).
+    pub fn format_timestamp(at: chrono::DateTime<chrono::Utc>) -> String {
+        at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+    }
+
+    /// Parse a client-supplied timestamp for the clock-skew check.
+    ///
+    /// Accepts any valid RFC 3339 string (any offset, optional fractional
+    /// seconds) and rejects everything else, including bare Unix seconds.
+    /// The signature is always computed over the string as received, never
+    /// over a re-formatted value, so this is only used to read the instant.
+    pub fn parse_timestamp(
+        value: &str,
+    ) -> Result<chrono::DateTime<chrono::Utc>, chrono::ParseError> {
+        Ok(chrono::DateTime::parse_from_rfc3339(value)?.with_timezone(&chrono::Utc))
+    }
+
+    /// The exact byte string that is signed and verified.
+    ///
+    /// `path` is the request target including any query string, so a
+    /// signature also binds the query parameters.
+    fn canonical_message(&self) -> String {
+        format!(
+            "{}\n{}\n{}\n{}\n{}\n{}",
+            self.agent_id, self.timestamp, self.nonce, self.method, self.path, self.body_sha256
+        )
     }
 
     /// Verify the signature against the agent's public key.
@@ -117,10 +160,7 @@ impl SignedRequest {
     /// decoding fails, or the Ed25519 verification rejects.
     pub fn verify(&self, public_key: &VerifyingKey) -> Result<(), SignatureError> {
         // Reconstruct the canonical message string from stored fields.
-        let message = format!(
-            "{}\n{}\n{}\n{}\n{}\n{}",
-            self.agent_id, self.timestamp, self.nonce, self.method, self.path, self.body_sha256
-        );
+        let message = self.canonical_message();
 
         // Decode the hex signature into raw bytes.
         let sig_bytes = hex::decode(&self.signature).map_err(|_| SignatureError::new())?;
@@ -128,5 +168,95 @@ impl SignedRequest {
         let sig = Signature::try_from(sig_bytes.as_slice()).map_err(|_| SignatureError::new())?;
         // Verify the signature against the reconstructed message.
         public_key.verify(message.as_bytes(), &sig)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::keypair::{AgentKeypair, public_key_from_hex};
+
+    const AGENT: &str = "agent_test";
+
+    fn signed(path: &str, body: &[u8]) -> (AgentKeypair, SignedRequest) {
+        let kp = AgentKeypair::generate();
+        let req = SignedRequest::sign(&kp, AGENT, "POST", path, body, "nonce-1");
+        (kp, req)
+    }
+
+    #[test]
+    fn sign_emits_utc_z_whole_second_timestamp() {
+        let (_kp, req) = signed("/v1/messages", b"{}");
+        // e.g. 2026-11-22T20:30:00Z : 20 chars, ends in Z, no fraction, no offset.
+        assert_eq!(req.timestamp.len(), 20, "unexpected timestamp: {}", req.timestamp);
+        assert!(req.timestamp.ends_with('Z'), "unexpected timestamp: {}", req.timestamp);
+        assert!(!req.timestamp.contains('.'), "unexpected timestamp: {}", req.timestamp);
+        assert!(SignedRequest::parse_timestamp(&req.timestamp).is_ok());
+    }
+
+    #[test]
+    fn sign_then_verify_roundtrips() {
+        let (kp, req) = signed("/v1/messages", b"{\"a\":1}");
+        let pk = public_key_from_hex(&kp.public_key_hex()).unwrap();
+        assert!(req.verify(&pk).is_ok());
+    }
+
+    #[test]
+    fn sign_at_uses_the_given_timestamp_verbatim() {
+        let kp = AgentKeypair::generate();
+        let ts = "2026-01-02T03:04:05Z";
+        let req = SignedRequest::sign_at(&kp, AGENT, "GET", "/v1/x", b"", "n", ts);
+        assert_eq!(req.timestamp, ts);
+        let pk = public_key_from_hex(&kp.public_key_hex()).unwrap();
+        assert!(req.verify(&pk).is_ok());
+    }
+
+    #[test]
+    fn verify_rejects_a_changed_query_string() {
+        let kp = AgentKeypair::generate();
+        let mut req = SignedRequest::sign(&kp, AGENT, "GET", "/v1/messages?agent_id=a", b"", "n");
+        req.path = "/v1/messages?agent_id=b".to_string();
+        let pk = public_key_from_hex(&kp.public_key_hex()).unwrap();
+        assert!(req.verify(&pk).is_err());
+    }
+
+    #[test]
+    fn verify_rejects_a_changed_body_hash() {
+        let (kp, mut req) = signed("/v1/messages", b"original");
+        req.body_sha256 = SignedRequest::hash_body(b"tampered");
+        let pk = public_key_from_hex(&kp.public_key_hex()).unwrap();
+        assert!(req.verify(&pk).is_err());
+    }
+
+    #[test]
+    fn verify_rejects_a_changed_method() {
+        let (kp, mut req) = signed("/v1/messages", b"x");
+        req.method = "PUT".to_string();
+        let pk = public_key_from_hex(&kp.public_key_hex()).unwrap();
+        assert!(req.verify(&pk).is_err());
+    }
+
+    #[test]
+    fn verify_rejects_another_agents_key() {
+        let (_kp, req) = signed("/v1/messages", b"x");
+        let other = AgentKeypair::generate();
+        let pk = public_key_from_hex(&other.public_key_hex()).unwrap();
+        assert!(req.verify(&pk).is_err());
+    }
+
+    #[test]
+    fn parse_timestamp_accepts_z_offset_and_fraction() {
+        let z = SignedRequest::parse_timestamp("2026-09-05T14:00:00Z").unwrap();
+        let off = SignedRequest::parse_timestamp("2026-09-05T16:00:00+02:00").unwrap();
+        let frac = SignedRequest::parse_timestamp("2026-09-05T14:00:00.250Z").unwrap();
+        assert_eq!(z, off);
+        assert_eq!(z.timestamp(), frac.timestamp());
+    }
+
+    #[test]
+    fn parse_timestamp_rejects_unix_seconds_and_garbage() {
+        for bad in ["1795375064", "", "yesterday", "2026-09-05", "2026-09-05 14:00:00"] {
+            assert!(SignedRequest::parse_timestamp(bad).is_err(), "accepted {bad:?}");
+        }
     }
 }
