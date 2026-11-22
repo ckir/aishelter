@@ -18,6 +18,9 @@ use serde_json::json;
 /// | [`InvalidSignature`]         | 401          |
 /// | [`DuplicateRegistration`]    | 409          |
 /// | [`TaskNotFound`]             | 404          |
+/// | [`MessageNotFound`]          | 404          |
+/// | [`Forbidden`]                | 403          |
+/// | [`InvalidRequest`]           | 400          |
 /// | [`InvalidTaskTransition`]    | 400          |
 /// | [`InsufficientValidators`]   | 400          |
 /// | [`Database`]                 | 500          |
@@ -29,6 +32,9 @@ use serde_json::json;
 /// [`InvalidSignature`]: AcError::InvalidSignature
 /// [`DuplicateRegistration`]: AcError::DuplicateRegistration
 /// [`TaskNotFound`]: AcError::TaskNotFound
+/// [`MessageNotFound`]: AcError::MessageNotFound
+/// [`Forbidden`]: AcError::Forbidden
+/// [`InvalidRequest`]: AcError::InvalidRequest
 /// [`InvalidTaskTransition`]: AcError::InvalidTaskTransition
 /// [`InsufficientValidators`]: AcError::InsufficientValidators
 /// [`Database`]: AcError::Database
@@ -40,6 +46,9 @@ pub fn app_error_to_response(err: AcError) -> Response {
         AcError::InvalidSignature(_) => (StatusCode::UNAUTHORIZED, err.to_string()),
         AcError::DuplicateRegistration(_) => (StatusCode::CONFLICT, err.to_string()),
         AcError::TaskNotFound(_) => (StatusCode::NOT_FOUND, err.to_string()),
+        AcError::MessageNotFound(_) => (StatusCode::NOT_FOUND, err.to_string()),
+        AcError::Forbidden(_) => (StatusCode::FORBIDDEN, err.to_string()),
+        AcError::InvalidRequest(_) => (StatusCode::BAD_REQUEST, err.to_string()),
         AcError::InvalidTaskTransition { .. } => (StatusCode::BAD_REQUEST, err.to_string()),
         AcError::InsufficientValidators { .. } => (StatusCode::BAD_REQUEST, err.to_string()),
         AcError::Database(_) => {

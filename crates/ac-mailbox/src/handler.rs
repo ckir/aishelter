@@ -7,8 +7,10 @@
 //! - `POST /{id}/ack` — mark a message as acknowledged (read)
 
 use ac_db::pool::SharedPool;
+use ac_types::auth::AuthenticatedAgent;
+use ac_types::error::AcError;
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Path, Query, State},
     routing::{get, post},
 };
@@ -64,12 +66,19 @@ pub struct SendMessageRequest {
     responses(
         (status = 200, description = "Message sent", body = serde_json::Value),
         (status = 400, description = "Invalid request or agent not found"),
+        (status = 401, description = "Missing or invalid request signature"),
+        (status = 403, description = "from_agent_id is not the authenticated agent"),
     ),
 )]
 pub async fn send_message(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Json(req): Json<SendMessageRequest>,
-) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+) -> Result<Json<serde_json::Value>, AcError> {
+    // The sender is whoever signed the request; the body field must agree.
+    if req.from_agent_id != caller {
+        return Err(AcError::Forbidden("from_agent_id must be the authenticated agent".into()));
+    }
     let pool = pool.load();
     let service = MailboxService::new(pool);
     // Parse the optional RFC 3339 expiry into a DateTime<Utc>.
@@ -101,12 +110,19 @@ pub async fn send_message(
     ),
     responses(
         (status = 200, description = "Messages list", body = serde_json::Value),
+        (status = 401, description = "Missing or invalid request signature"),
+        (status = 403, description = "agent_id is not the authenticated agent"),
     ),
 )]
 pub async fn get_messages(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Query(params): Query<GetMessagesQuery>,
-) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+) -> Result<Json<serde_json::Value>, AcError> {
+    // An agent may only list its own mailbox.
+    if params.agent_id != caller {
+        return Err(AcError::Forbidden("agent_id must be the authenticated agent".into()));
+    }
     let pool = pool.load();
     let service = MailboxService::new(pool);
     let messages =
@@ -127,16 +143,19 @@ pub async fn get_messages(
     ),
     responses(
         (status = 200, description = "Message details", body = serde_json::Value),
-        (status = 404, description = "Message not found"),
+        (status = 400, description = "Malformed message id"),
+        (status = 401, description = "Missing or invalid request signature"),
+        (status = 404, description = "Message not found, or the caller is not a party to it"),
     ),
 )]
 pub async fn get_message(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+) -> Result<Json<serde_json::Value>, AcError> {
     let pool = pool.load();
     let service = MailboxService::new(pool);
-    let msg = service.get_message(&id).await?;
+    let msg = service.get_message(&id, &caller).await?;
     Ok(Json(serde_json::json!({ "data": msg })))
 }
 
@@ -149,15 +168,18 @@ pub async fn get_message(
     ),
     responses(
         (status = 200, description = "Message acknowledged", body = serde_json::Value),
-        (status = 404, description = "Message not found"),
+        (status = 400, description = "Malformed message id"),
+        (status = 401, description = "Missing or invalid request signature"),
+        (status = 404, description = "Message not found, or the caller is not a party to it"),
     ),
 )]
 pub async fn acknowledge_message(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+) -> Result<Json<serde_json::Value>, AcError> {
     let pool = pool.load();
     let service = MailboxService::new(pool);
-    service.acknowledge_message(&id).await?;
+    service.acknowledge_message(&id, &caller).await?;
     Ok(Json(serde_json::json!({ "status": "acknowledged" })))
 }

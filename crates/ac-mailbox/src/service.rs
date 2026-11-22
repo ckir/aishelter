@@ -130,19 +130,25 @@ impl MailboxService {
             .collect())
     }
 
-    /// Retrieve a single message by its UUID string.
+    /// Retrieve a single message by its UUID string, as `caller`.
     ///
-    /// // Parse the string into a Uuid, then query the row.
-    pub async fn get_message(&self, message_id: &str) -> Result<serde_json::Value, AcError> {
-        let id = Uuid::parse_str(message_id)
-            .map_err(|e| AcError::Internal(format!("invalid message_id: {}", e)))?;
+    /// Only the sender or the recipient may read a message. For anyone else
+    /// the result is the same `MessageNotFound` as for an unknown id, so the
+    /// endpoint is not an existence oracle.
+    pub async fn get_message(
+        &self,
+        message_id: &str,
+        caller: &str,
+    ) -> Result<serde_json::Value, AcError> {
+        let id = parse_message_id(message_id)?;
 
         let row: Option<MessageRow> =
             sqlx::query_as(
                 "SELECT message_id, from_agent_id, to_agent_id, message_type, payload, expires_at, created_at, acknowledged
-                 FROM messages WHERE message_id = $1",
+                 FROM messages WHERE message_id = $1 AND (from_agent_id = $2 OR to_agent_id = $2)",
             )
             .bind(id)
+            .bind(caller)
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| AcError::Database(e.to_string()))?;
@@ -152,29 +158,36 @@ impl MailboxService {
                 "message_id": r.0, "from": r.1, "to": r.2, "type": r.3,
                 "payload": r.4, "expires_at": r.5, "created_at": r.6, "acknowledged": r.7,
             })),
-            None => Err(AcError::TaskNotFound(message_id.to_string())),
+            None => Err(AcError::MessageNotFound(message_id.to_string())),
         }
     }
 
-    /// Mark a message as acknowledged (read).
+    /// Mark a message as acknowledged (read), as `caller`.
     ///
-    /// // Sets acknowledged = true and records the current timestamp.
-    pub async fn acknowledge_message(&self, message_id: &str) -> Result<(), AcError> {
-        let id = Uuid::parse_str(message_id)
-            .map_err(|e| AcError::Internal(format!("invalid message_id: {}", e)))?;
+    /// Only the recipient may acknowledge. Anyone else gets `MessageNotFound`,
+    /// exactly as for an unknown id.
+    pub async fn acknowledge_message(&self, message_id: &str, caller: &str) -> Result<(), AcError> {
+        let id = parse_message_id(message_id)?;
 
         let result = sqlx::query(
-            "UPDATE messages SET acknowledged = true, acknowledged_at = NOW() WHERE message_id = $1",
+            "UPDATE messages SET acknowledged = true, acknowledged_at = NOW()
+             WHERE message_id = $1 AND to_agent_id = $2",
         )
         .bind(id)
+        .bind(caller)
         .execute(&self.pool)
         .await
         .map_err(|e| AcError::Database(e.to_string()))?;
 
-        // Zero rows affected means the message UUID doesn't exist.
         if result.rows_affected() == 0 {
-            return Err(AcError::TaskNotFound(message_id.to_string()));
+            return Err(AcError::MessageNotFound(message_id.to_string()));
         }
         Ok(())
     }
+}
+
+/// Parse a message id from a path segment; a malformed id is the caller's error.
+fn parse_message_id(message_id: &str) -> Result<Uuid, AcError> {
+    Uuid::parse_str(message_id)
+        .map_err(|e| AcError::InvalidRequest(format!("invalid message_id: {e}")))
 }

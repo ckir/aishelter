@@ -34,6 +34,27 @@ pub enum AcError {
         String,
     ),
 
+    /// The caller is authenticated but not allowed to do this.
+    #[error("forbidden: {0}")]
+    Forbidden(
+        /// Why the action was refused.
+        String,
+    ),
+
+    /// The requested message does not exist, or the caller is not a party to it.
+    #[error("message not found: {0}")]
+    MessageNotFound(
+        /// The message ID that was looked up.
+        String,
+    ),
+
+    /// The request was well-formed JSON/HTTP but carried an invalid value.
+    #[error("invalid request: {0}")]
+    InvalidRequest(
+        /// What was wrong with the request.
+        String,
+    ),
+
     /// The requested task ID does not exist.
     #[error("task not found: {0}")]
     TaskNotFound(
@@ -77,9 +98,11 @@ pub enum AcError {
 impl axum::response::IntoResponse for AcError {
     fn into_response(self) -> axum::response::Response {
         let status = match &self {
-            AcError::AgentNotFound(_) | AcError::TaskNotFound(_) => {
+            AcError::AgentNotFound(_) | AcError::TaskNotFound(_) | AcError::MessageNotFound(_) => {
                 axum::http::StatusCode::NOT_FOUND
             }
+            AcError::Forbidden(_) => axum::http::StatusCode::FORBIDDEN,
+            AcError::InvalidRequest(_) => axum::http::StatusCode::BAD_REQUEST,
             AcError::DuplicateRegistration(_) => axum::http::StatusCode::CONFLICT,
             AcError::InvalidTaskTransition { .. } => axum::http::StatusCode::BAD_REQUEST,
             AcError::InvalidSignature(_) | AcError::InsufficientValidators { .. } => {

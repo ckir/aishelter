@@ -10,6 +10,8 @@
 
 /// Agent identity and lifecycle state.
 pub mod agent;
+/// Authenticated caller identity.
+pub mod auth;
 /// Capability advertisement (Agent Card).
 pub mod card;
 /// Application-level error types.

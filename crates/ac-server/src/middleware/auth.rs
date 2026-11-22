@@ -59,12 +59,7 @@ const ACTIVE_STATUSES: [&str; 2] = ["REGISTERED", "ACTIVE"];
 const TIMESTAMP_HELP: &str =
     "X-Agent-Timestamp must be an RFC 3339 UTC timestamp, e.g. 2026-11-22T20:30:00Z";
 
-/// The agent whose signature verified for this request.
-///
-/// Inserted into request extensions by [`authenticate`]. Extract with
-/// `Extension<AuthenticatedAgent>` in handlers on protected routes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AuthenticatedAgent(pub String);
+pub use ac_types::auth::AuthenticatedAgent;
 
 /// Why a request failed authentication.
 #[derive(Debug)]

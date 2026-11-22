@@ -10,6 +10,7 @@ mod auth;
 mod discovery;
 mod harness;
 mod mailbox;
+mod mailbox_authz;
 mod middleware;
 mod openapi;
 mod registry;
