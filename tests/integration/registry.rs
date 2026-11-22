@@ -143,13 +143,15 @@ async fn get_agent_not_found() {
 #[tokio::test]
 async fn update_agent_card_success() {
     let app = TestApp::setup().await;
-    let agent_id = register_agent(&app).await;
+    let agent = app.register_agent().await;
+    let agent_id = agent.id.clone();
 
     let body = json!({
         "name": "Updated Agent Name",
         "description": "This description was updated by the integration test"
     });
-    let resp = app.put_json(&format!("/v1/agents/{agent_id}/card"), body).await;
+    let resp =
+        app.send_signed(&agent, "PUT", &format!("/v1/agents/{agent_id}/card"), Some(&body)).await;
     assert_eq!(TestApp::status(&resp), StatusCode::OK);
 
     // Verify the update persisted by fetching the agent again.

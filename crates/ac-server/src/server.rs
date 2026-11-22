@@ -58,9 +58,19 @@ pub fn create_app(pool: SharedPool, metrics: Metrics, rate_limiter: RateLimiter)
                 }
             }),
         )
-        .nest("/v1/agents", ac_registry::handler::routes(pool.clone()))
+        .nest(
+            "/v1/agents",
+            ac_registry::handler::public_routes(pool.clone()).merge(
+                ac_registry::handler::protected_routes(pool.clone())
+                    .route_layer(from_fn_with_state(pool.clone(), authenticate)),
+            ),
+        )
         .merge(ac_directory::well_known::routes(pool.clone()))
-        .merge(ac_directory::handler::routes(pool.clone()))
+        .merge(ac_directory::handler::public_routes(pool.clone()))
+        .merge(
+            ac_directory::handler::protected_routes(pool.clone())
+                .route_layer(from_fn_with_state(pool.clone(), authenticate)),
+        )
         .nest("/v1/discovery", ac_discovery::handler::routes(pool.clone()))
         .nest(
             "/v1/messages",

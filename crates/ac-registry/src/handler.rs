@@ -10,9 +10,10 @@
 //! Agent Commons protocol version.
 
 use ac_db::pool::SharedPool;
+use ac_types::auth::AuthenticatedAgent;
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
@@ -24,11 +25,23 @@ use crate::service::RegistryService;
 /// The router expects a [`PgPool`] state, which is used by each handler to
 /// construct a [`RegistryService`] for database operations.
 pub fn routes(pool: SharedPool) -> Router {
+    public_routes(pool.clone()).merge(protected_routes(pool))
+}
+
+/// Routes anyone may call: registration and agent lookup.
+pub fn public_routes(pool: SharedPool) -> Router {
     Router::new()
         .route("/register", post(register_handler))
         .route("/{id}", get(get_agent_handler))
-        .route("/{id}/card", put(update_card_handler))
         .with_state(pool)
+}
+
+/// Routes that change an agent and therefore require a verified signature.
+///
+/// The server must layer authentication over this router (it is kept separate
+/// so that protection is structural, not a path allowlist).
+pub fn protected_routes(pool: SharedPool) -> Router {
+    Router::new().route("/{id}/card", put(update_card_handler)).with_state(pool)
 }
 
 /// Request body for `POST /register`.
@@ -168,14 +181,23 @@ pub async fn get_agent_handler(
     ),
     responses(
         (status = 200, description = "Agent card updated", body = serde_json::Value),
+        (status = 401, description = "Missing or invalid request signature"),
+        (status = 403, description = "Caller is not the agent being updated"),
         (status = 404, description = "Agent not found"),
     ),
 )]
 pub async fn update_card_handler(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Path(id): Path<String>,
     Json(req): Json<CardUpdateRequest>,
 ) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+    // An agent may edit only its own card.
+    if caller != id {
+        return Err(ac_types::error::AcError::Forbidden(
+            "an agent may only update its own card".to_string(),
+        ));
+    }
     let pool = pool.load();
     let service = RegistryService::new(pool);
     service.update_card(&id, req.name.clone(), req.description.clone()).await?;

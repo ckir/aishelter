@@ -15,17 +15,28 @@ use crate::service::DirectoryService;
 
 /// Build the directory router with all service and directory routes.
 pub fn routes(pool: SharedPool) -> Router {
+    public_routes(pool.clone()).merge(protected_routes(pool))
+}
+
+/// Read-only discovery routes anyone may call.
+pub fn public_routes(pool: SharedPool) -> Router {
     Router::new()
-        // Service routes
-        .route("/v1/services", post(register_service_handler))
         .route("/v1/services", get(list_services_handler))
         .route("/v1/services/{id}", get(get_service_handler))
-        .route("/v1/services/{id}/refresh", put(refresh_service_handler))
-        // Directory routes
-        .route("/v1/directories", post(register_directory_handler))
         .route("/v1/directories", get(list_directories_handler))
-        // Capabilities route
         .route("/v1/capabilities", get(get_capabilities_handler))
+        .with_state(pool)
+}
+
+/// Routes that create or refresh entries and therefore require a verified
+/// signature. The server must layer authentication over this router.
+///
+/// Entries have no owner column yet, so the gate is "any registered agent".
+pub fn protected_routes(pool: SharedPool) -> Router {
+    Router::new()
+        .route("/v1/services", post(register_service_handler))
+        .route("/v1/services/{id}/refresh", put(refresh_service_handler))
+        .route("/v1/directories", post(register_directory_handler))
         .with_state(pool)
 }
 
