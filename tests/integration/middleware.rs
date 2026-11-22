@@ -13,7 +13,6 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
 use chrono::Utc;
 use ed25519_dalek::SigningKey;
-use hex;
 use rand_core::OsRng;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -55,8 +54,9 @@ fn build_signed_request(
     let body_str = body.unwrap_or_default();
     let body_hash = hex::encode(Sha256::digest(body_str.as_bytes()));
 
-    // Build the string to sign
-    let to_sign = format!("{agent_id}\n{timestamp}\n{nonce}\n{method}\n{path}\n{body_hash}");
+    // Canonical string to sign. Not signed yet: the signature header below is a
+    // placeholder until the middleware is wired in and verifies real signatures.
+    let _to_sign = format!("{agent_id}\n{timestamp}\n{nonce}\n{method}\n{path}\n{body_hash}");
 
     let uri = path.parse::<axum::http::Uri>().expect("invalid URI");
     let mut builder = Request::builder().method(method).uri(uri);

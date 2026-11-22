@@ -5,7 +5,7 @@
 //! and exposes convenience methods for issuing requests against the in-process server.
 
 use axum::body::Body;
-use axum::http::{Request, Response, StatusCode, Uri, header};
+use axum::http::{Request, Response, StatusCode, header};
 use sqlx::PgPool;
 use sqlx::migrate::Migrator;
 use testcontainers::runners::AsyncRunner;
