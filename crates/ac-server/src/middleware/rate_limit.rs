@@ -1,5 +1,13 @@
-//! Per-agent and global rate limiting middleware.
+//! Global and per-agent rate limiting middleware.
+//!
+//! * [`rate_limit`] is the outermost guard. It applies the **global** bucket
+//!   to every request and never looks at client-supplied identity.
+//! * [`rate_limit_agent`] applies the **per-agent** bucket. It must run behind
+//!   the authentication layer and keys on the verified [`AuthenticatedAgent`],
+//!   so a caller cannot drain another agent's allowance by naming it in
+//!   `X-Agent-Id`, and cannot mint fresh allowances by rotating fake ids.
 
+use ac_types::auth::AuthenticatedAgent;
 use axum::{
     body::Body,
     extract::Extension,
@@ -12,6 +20,9 @@ use std::{
     sync::{Arc, Mutex},
     time::Instant,
 };
+
+/// Most per-agent buckets kept before idle ones are discarded.
+pub const MAX_TRACKED_AGENTS: usize = 10_000;
 
 /// Simple token bucket for rate limiting.
 ///
@@ -82,8 +93,7 @@ impl RateLimiter {
     /// Create a new rate limiter with separate global and per-agent limits.
     ///
     /// `global_limit` caps total requests across all agents.
-    /// `agent_limit` caps requests from any single agent identified by
-    /// the `X-Agent-Id` header. Both use the same `window_secs` for refill timing.
+    /// `agent_limit` caps requests from any single verified agent. Both use the same `window_secs` for refill timing.
     pub fn new(global_limit: u64, agent_limit: u64, window_secs: u64) -> Self {
         Self {
             global: Arc::new(Mutex::new(TokenBucket::new(global_limit, window_secs))),
@@ -93,56 +103,118 @@ impl RateLimiter {
         }
     }
 
-    /// Check whether a request should be allowed.
+    /// Consume one token from the global bucket.
     ///
-    /// The global limit is always checked first. If an `agent_id` is provided,
-    /// the per-agent limit is also checked. Returns `false` if either bucket
-    /// is exhausted.
-    pub fn check(&self, agent_id: Option<&str>) -> bool {
-        // Check global limit first
-        if !self.global.lock().unwrap().try_consume() {
-            return false;
+    /// Returns `false` when the global bucket is exhausted.
+    pub fn check_global(&self) -> bool {
+        self.global.lock().unwrap().try_consume()
+    }
+
+    /// Consume one token from `agent_id`'s bucket.
+    ///
+    /// `agent_id` must be a verified identity. Buckets that have been idle
+    /// for a full window (so would be full again anyway) are dropped once
+    /// [`MAX_TRACKED_AGENTS`] is exceeded, which bounds memory.
+    pub fn check_agent(&self, agent_id: &str) -> bool {
+        let mut map = self.per_agent.lock().unwrap();
+        if map.len() >= MAX_TRACKED_AGENTS && !map.contains_key(agent_id) {
+            let idle = std::time::Duration::from_secs(self.window_secs);
+            map.retain(|_, bucket| bucket.last_refill.elapsed() < idle);
         }
-        // Then per-agent limit
-        if let Some(id) = agent_id {
-            let mut map = self.per_agent.lock().unwrap();
-            let bucket = map
-                .entry(id.to_string())
-                .or_insert_with(|| TokenBucket::new(self.agent_limit, self.window_secs));
-            if !bucket.try_consume() {
-                return false;
-            }
-        }
-        true
+        map.entry(agent_id.to_string())
+            .or_insert_with(|| TokenBucket::new(self.agent_limit, self.window_secs))
+            .try_consume()
+    }
+
+    fn too_many_requests(&self) -> Response {
+        let mut resp = Response::new(Body::from("rate limit exceeded"));
+        *resp.status_mut() = StatusCode::TOO_MANY_REQUESTS;
+        resp.headers_mut().insert(
+            header::RETRY_AFTER,
+            HeaderValue::from_str(&self.window_secs.to_string()).unwrap(),
+        );
+        resp
     }
 }
 
-/// Extract the agent ID from the `X-Agent-Id` request header.
+/// Global rate limit (outermost layer).
 ///
-/// Returns `None` when the header is absent or contains non-UTF-8 bytes.
-fn extract_agent_id(req: &Request<Body>) -> Option<String> {
-    req.headers().get("X-Agent-Id").and_then(|v| v.to_str().ok()).map(|s| s.to_string())
-}
-
-/// Axum middleware for rate limiting.
-///
-/// Rejects requests with HTTP 429 (Too Many Requests) when the global
-/// or per-agent token bucket is exhausted.  A `Retry-After` header is
-/// included with the configured window in seconds.
+/// Rejects with HTTP 429 and a `Retry-After` header (the window in seconds)
+/// when the global bucket is exhausted. Identity is deliberately ignored here.
 pub async fn rate_limit(
     Extension(rate_limiter): Extension<RateLimiter>,
     req: Request<Body>,
     next: Next,
 ) -> Response {
-    let agent_id = extract_agent_id(&req);
-    if !rate_limiter.check(agent_id.as_deref()) {
-        let mut resp = Response::new(Body::from("rate limit exceeded"));
-        *resp.status_mut() = StatusCode::TOO_MANY_REQUESTS;
-        resp.headers_mut().insert(
-            header::RETRY_AFTER,
-            HeaderValue::from_str(&rate_limiter.window_secs.to_string()).unwrap(),
-        );
-        return resp;
+    if !rate_limiter.check_global() {
+        return rate_limiter.too_many_requests();
     }
     next.run(req).await
+}
+
+/// Per-agent rate limit, keyed on the verified caller.
+///
+/// Layer it **inside** `authenticate`. A request that reaches it without an
+/// [`AuthenticatedAgent`] is a wiring bug, and fails closed with a 500.
+pub async fn rate_limit_agent(
+    Extension(rate_limiter): Extension<RateLimiter>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    let Some(AuthenticatedAgent(agent_id)) = req.extensions().get::<AuthenticatedAgent>() else {
+        tracing::error!("rate_limit_agent ran without an authenticated agent");
+        return Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(Body::from("internal error"))
+            .unwrap();
+    };
+    if !rate_limiter.check_agent(agent_id) {
+        return rate_limiter.too_many_requests();
+    }
+    next.run(req).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn idle_buckets_are_dropped_once_the_map_is_full() {
+        let limiter = RateLimiter::new(100, 5, 60);
+        {
+            let mut map = limiter.per_agent.lock().unwrap();
+            for i in 0..MAX_TRACKED_AGENTS {
+                let mut bucket = TokenBucket::new(5, 60);
+                bucket.last_refill = Instant::now() - Duration::from_secs(120);
+                map.insert(format!("idle-{i}"), bucket);
+            }
+        }
+        assert!(limiter.check_agent("newcomer"));
+        let len = limiter.per_agent.lock().unwrap().len();
+        assert_eq!(len, 1, "all idle buckets were pruned, only the newcomer remains");
+    }
+
+    #[test]
+    fn active_buckets_survive_pruning() {
+        let limiter = RateLimiter::new(100, 5, 60);
+        {
+            let mut map = limiter.per_agent.lock().unwrap();
+            for i in 0..MAX_TRACKED_AGENTS {
+                map.insert(format!("busy-{i}"), TokenBucket::new(5, 60));
+            }
+        }
+        assert!(limiter.check_agent("newcomer"));
+        let len = limiter.per_agent.lock().unwrap().len();
+        assert_eq!(len, MAX_TRACKED_AGENTS + 1, "recently used buckets are kept");
+    }
+
+    #[test]
+    fn a_bucket_denies_after_its_allowance() {
+        let limiter = RateLimiter::new(100, 2, 60);
+        assert!(limiter.check_agent("a"));
+        assert!(limiter.check_agent("a"));
+        assert!(!limiter.check_agent("a"));
+        assert!(limiter.check_agent("b"));
+    }
 }

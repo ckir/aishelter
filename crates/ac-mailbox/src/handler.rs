@@ -61,6 +61,7 @@ pub struct SendMessageRequest {
 #[utoipa::path(
     post,
     path = "/v1/messages",
+    security(("AgentSignature" = [])),
     tag = "mailbox",
     request_body = SendMessageRequest,
     responses(
@@ -103,6 +104,7 @@ pub async fn send_message(
 #[utoipa::path(
     get,
     path = "/v1/messages",
+    security(("AgentSignature" = [])),
     tag = "mailbox",
     params(
         ("agent_id" = String, Query, description = "Agent ID to fetch messages for"),
@@ -137,6 +139,7 @@ pub async fn get_messages(
 #[utoipa::path(
     get,
     path = "/v1/messages/{id}",
+    security(("AgentSignature" = [])),
     tag = "mailbox",
     params(
         ("id" = String, Path, description = "Message ID"),
@@ -162,6 +165,7 @@ pub async fn get_message(
 #[utoipa::path(
     post,
     path = "/v1/messages/{id}/ack",
+    security(("AgentSignature" = [])),
     tag = "mailbox",
     params(
         ("id" = String, Path, description = "Message ID"),

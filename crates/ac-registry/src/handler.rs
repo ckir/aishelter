@@ -174,6 +174,7 @@ pub async fn get_agent_handler(
 #[utoipa::path(
     put,
     path = "/v1/agents/{id}/card",
+    security(("AgentSignature" = [])),
     tag = "registry",
     request_body = CardUpdateRequest,
     params(

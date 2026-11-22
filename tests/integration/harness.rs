@@ -38,6 +38,16 @@ impl TestApp {
     /// Panics if the test container cannot be started, the pool cannot be
     /// created, migrations fail, or the app router cannot be built.
     pub async fn setup() -> Self {
+        Self::setup_with_limits(1000, 100, 60).await
+    }
+
+    /// Like [`TestApp::setup`] with explicit rate limits
+    /// (`global` and `per_agent` requests per `window_secs`).
+    ///
+    /// # Panics
+    ///
+    /// Panics under the same conditions as [`TestApp::setup`].
+    pub async fn setup_with_limits(global: u64, per_agent: u64, window_secs: u64) -> Self {
         let pool = if let Ok(dsn) = std::env::var("DATABASE_URL") {
             // Use the CI-provided postgres service when available.
             // The migrations use CREATE TABLE IF NOT EXISTS, so they are idempotent
@@ -70,7 +80,7 @@ impl TestApp {
         migrator.run(&pool).await.expect("failed to run migrations");
 
         let metrics = Metrics::new();
-        let rate_limiter = RateLimiter::new(1000, 100, 60);
+        let rate_limiter = RateLimiter::new(global, per_agent, window_secs);
         let shared_pool = ac_db::pool::SharedPool::new(pool.clone());
         let app = ac_server::server::create_app(shared_pool, metrics, rate_limiter);
 
@@ -209,6 +219,11 @@ impl TestAgent {
             id: format!("agent_{}", uuid::Uuid::new_v4().simple()),
             keypair: AgentKeypair::generate(),
         }
+    }
+
+    /// A fresh keypair that claims an existing agent's `id` (an impostor).
+    pub fn impostor_of(id: &str) -> Self {
+        Self { id: id.to_string(), keypair: AgentKeypair::generate() }
     }
 
     /// Hex-encoded public key, as stored in `agents.public_key`.

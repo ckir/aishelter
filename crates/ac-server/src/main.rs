@@ -35,6 +35,9 @@ use sqlx::postgres::PgPoolOptions;
 /// background task to refresh the token every ~12 minutes.
 ///
 /// The server shuts down gracefully on SIGINT (Ctrl+C).
+/// How often expired nonces and idempotency keys are purged.
+const PURGE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize structured logging
@@ -71,6 +74,9 @@ async fn main() -> anyhow::Result<()> {
         settings.rate_limit_per_agent,
         settings.rate_limit_window_secs,
     );
+
+    // Remove expired nonces and idempotency keys periodically.
+    ac_server::maintenance::spawn_purge_task(shared_pool.clone(), PURGE_INTERVAL);
 
     // Build the application router
     let app = create_app(shared_pool, metrics, rate_limiter);

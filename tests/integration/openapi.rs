@@ -139,3 +139,51 @@ async fn openapi_spec_is_valid_json() {
     let spec: serde_json::Value = TestApp::json_body(resp).await;
     assert!(spec.is_object(), "OpenAPI spec should be a JSON object");
 }
+
+/// The signed-request contract is part of the published spec: the scheme names
+/// every header, states the timestamp format, and exactly the protected
+/// operations require it.
+#[tokio::test]
+async fn spec_documents_request_signing_on_protected_operations_only() {
+    let app = TestApp::setup().await;
+    let resp = app.get("/api/openapi.json").await;
+    assert_eq!(TestApp::status(&resp), StatusCode::OK);
+    let spec: serde_json::Value = TestApp::json_body(resp).await;
+
+    let scheme = &spec["components"]["securitySchemes"]["AgentSignature"];
+    assert_eq!(scheme["type"], "apiKey", "{scheme}");
+    assert_eq!(scheme["in"], "header");
+    assert_eq!(scheme["name"], "X-Agent-Signature");
+    let description = scheme["description"].as_str().expect("scheme has a description");
+    for needle in [
+        "X-Agent-Id",
+        "X-Agent-Timestamp",
+        "X-Agent-Nonce",
+        "RFC 3339",
+        "2026-11-22T20:30:00Z",
+        "sha256",
+        "query",
+    ] {
+        assert!(description.contains(needle), "scheme description lacks `{needle}`: {description}");
+    }
+
+    let secured = |path: &str, method: &str| -> bool {
+        spec["paths"][path][method]["security"]
+            .as_array()
+            .is_some_and(|reqs| reqs.iter().any(|r| r.get("AgentSignature").is_some()))
+    };
+    for (path, method) in [
+        ("/v1/messages", "post"),
+        ("/v1/messages", "get"),
+        ("/v1/messages/{id}", "get"),
+        ("/v1/messages/{id}/ack", "post"),
+        ("/v1/agents/{id}/card", "put"),
+    ] {
+        assert!(secured(path, method), "{method} {path} must require AgentSignature");
+    }
+    for (path, method) in
+        [("/v1/health", "get"), ("/v1/agents/register", "post"), ("/v1/agents/{id}", "get")]
+    {
+        assert!(!secured(path, method), "{method} {path} is public");
+    }
+}

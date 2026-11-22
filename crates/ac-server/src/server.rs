@@ -10,7 +10,7 @@
 
 use crate::middleware::auth::authenticate;
 use crate::middleware::idempotency::enforce_idempotency;
-use crate::middleware::rate_limit::{RateLimiter, rate_limit as rate_limit_mw};
+use crate::middleware::rate_limit::{RateLimiter, rate_limit as rate_limit_mw, rate_limit_agent};
 use ac_db::pool::SharedPool;
 use ac_metrics::middleware::record_metrics;
 use ac_metrics::readiness;
@@ -30,13 +30,15 @@ use utoipa_scalar::{Scalar, Servable};
 
 use crate::routes::ApiDoc;
 
-/// Require a verified signature, then apply `Idempotency-Key` handling.
+/// Require a verified signature, then apply the per-agent rate limit and
+/// `Idempotency-Key` handling.
 ///
 /// `route_layer` calls wrap outward, so authentication is added last and
-/// therefore runs first; the idempotency layer can then key on the verified id.
+/// therefore runs first; the layers behind it can then key on the verified id.
 fn protect(router: Router, pool: &SharedPool) -> Router {
     router
         .route_layer(from_fn_with_state(pool.clone(), enforce_idempotency))
+        .route_layer(from_fn(rate_limit_agent))
         .route_layer(from_fn_with_state(pool.clone(), authenticate))
 }
 

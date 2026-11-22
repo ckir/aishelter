@@ -14,6 +14,8 @@
 
 /// Server configuration management.
 pub mod config;
+/// Periodic cleanup of expired replay-protection and idempotency rows.
+pub mod maintenance;
 /// HTTP middleware modules.
 pub mod middleware;
 /// RDS IAM authentication and pool refresh (requires `rds-iam` feature).
