@@ -25,7 +25,9 @@ bytes (empty body for GET).\n\n\
 Failures: 401 missing or failed authentication (also unknown or suspended agents), 400 \
 malformed, stale or replayed credentials, 413 body over 1 MiB. The optional \
 `Idempotency-Key` header makes a retried mutation return the stored response; reusing a \
-key with a different body is 422.";
+key with a different body is 422. Keys are scoped to the authenticated agent; on public \
+routes such as registration they are shared by all callers, so use an unguessable key (a \
+random UUID).";
 
 /// Registers the `AgentSignature` security scheme.
 struct SigningScheme;

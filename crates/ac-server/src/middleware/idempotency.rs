@@ -9,7 +9,9 @@
 //!   [`AuthenticatedAgent`] set by the authentication layer, which therefore
 //!   must run first) plus `METHOD /path`. Unauthenticated routes share the
 //!   `anonymous` principal. The `X-Agent-Id` header is never consulted: it is
-//!   attacker-controlled.
+//!   attacker-controlled. The anonymous key namespace is therefore shared by
+//!   every caller: clients must choose unguessable keys (a random UUID), or a
+//!   stranger who guesses a key first makes the real caller's retry a 422.
 //! - Replaying a key with a **different body** is a client error (422), not a
 //!   silent replay of an unrelated response.
 //! - Only successful (`< 400`) responses to unsafe methods are stored, so a

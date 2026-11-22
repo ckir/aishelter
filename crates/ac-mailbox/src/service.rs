@@ -145,7 +145,8 @@ impl MailboxService {
         let row: Option<MessageRow> =
             sqlx::query_as(
                 "SELECT message_id, from_agent_id, to_agent_id, message_type, payload, expires_at, created_at, acknowledged
-                 FROM messages WHERE message_id = $1 AND (from_agent_id = $2 OR to_agent_id = $2)",
+                 FROM messages WHERE message_id = $1 AND (from_agent_id = $2 OR to_agent_id = $2)
+                 AND (expires_at IS NULL OR expires_at > NOW())",
             )
             .bind(id)
             .bind(caller)
@@ -171,7 +172,8 @@ impl MailboxService {
 
         let result = sqlx::query(
             "UPDATE messages SET acknowledged = true, acknowledged_at = NOW()
-             WHERE message_id = $1 AND to_agent_id = $2",
+             WHERE message_id = $1 AND to_agent_id = $2
+             AND (expires_at IS NULL OR expires_at > NOW())",
         )
         .bind(id)
         .bind(caller)

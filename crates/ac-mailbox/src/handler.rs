@@ -83,10 +83,18 @@ pub async fn send_message(
     let pool = pool.load();
     let service = MailboxService::new(pool);
     // Parse the optional RFC 3339 expiry into a DateTime<Utc>.
+    // A value that does not parse is an error: dropping it would store an
+    // immortal message the sender meant to expire.
     let expires_at = req
         .expires_at
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
-        .map(|dt| dt.with_timezone(&chrono::Utc));
+        .map(|s| {
+            chrono::DateTime::parse_from_rfc3339(&s)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .map_err(|_| {
+                    AcError::InvalidRequest("expires_at must be an RFC 3339 timestamp".into())
+                })
+        })
+        .transpose()?;
 
     let message_id = service
         .send_message(

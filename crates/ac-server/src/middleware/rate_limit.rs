@@ -31,7 +31,7 @@ pub const MAX_TRACKED_AGENTS: usize = 10_000;
 /// are denied until enough tokens have refilled.
 struct TokenBucket {
     /// Current number of available tokens.
-    tokens: u64,
+    tokens: f64,
     /// Maximum number of tokens the bucket can hold.
     max_tokens: u64,
     /// Time of the last token refill calculation.
@@ -48,7 +48,7 @@ impl TokenBucket {
     /// would be consumed at the refill rate.
     fn new(max_tokens: u64, window_secs: u64) -> Self {
         Self {
-            tokens: max_tokens,
+            tokens: max_tokens as f64,
             max_tokens,
             last_refill: Instant::now(),
             refill_rate: max_tokens as f64 / window_secs as f64,
@@ -61,11 +61,13 @@ impl TokenBucket {
     fn try_consume(&mut self) -> bool {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_refill).as_secs_f64();
-        self.tokens =
-            (self.tokens as f64 + elapsed * self.refill_rate).min(self.max_tokens as f64) as u64;
+        // Keep fractional tokens: truncating them while still resetting the
+        // clock would discard the partial refill on every call and starve a
+        // bucket that is polled faster than one token's refill time.
+        self.tokens = (self.tokens + elapsed * self.refill_rate).min(self.max_tokens as f64);
         self.last_refill = now;
-        if self.tokens > 0 {
-            self.tokens -= 1;
+        if self.tokens >= 1.0 {
+            self.tokens -= 1.0;
             true
         } else {
             false
@@ -207,6 +209,19 @@ mod tests {
         assert!(limiter.check_agent("newcomer"));
         let len = limiter.per_agent.lock().unwrap().len();
         assert_eq!(len, MAX_TRACKED_AGENTS + 1, "recently used buckets are kept");
+    }
+
+    /// Polling a drained bucket faster than one token's refill time must not
+    /// discard the partial refill each time (it used to truncate to zero and
+    /// reset the clock, starving the bucket for as long as the polling lasted).
+    #[test]
+    fn fractional_refill_accumulates_under_fast_polling() {
+        let mut bucket = TokenBucket::new(1, 1); // 1 token, refills 1 per second
+        assert!(bucket.try_consume());
+        bucket.last_refill = Instant::now() - Duration::from_millis(600);
+        assert!(!bucket.try_consume(), "0.6 of a token is not enough yet");
+        bucket.last_refill = Instant::now() - Duration::from_millis(600);
+        assert!(bucket.try_consume(), "0.6 + 0.6 = 1.2 tokens: one request is allowed");
     }
 
     #[test]

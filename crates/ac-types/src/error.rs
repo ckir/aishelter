@@ -105,11 +105,25 @@ impl axum::response::IntoResponse for AcError {
             AcError::InvalidRequest(_) => axum::http::StatusCode::BAD_REQUEST,
             AcError::DuplicateRegistration(_) => axum::http::StatusCode::CONFLICT,
             AcError::InvalidTaskTransition { .. } => axum::http::StatusCode::BAD_REQUEST,
-            AcError::InvalidSignature(_) | AcError::InsufficientValidators { .. } => {
-                axum::http::StatusCode::BAD_REQUEST
-            }
+            AcError::InvalidSignature(_) => axum::http::StatusCode::UNAUTHORIZED,
+            AcError::InsufficientValidators { .. } => axum::http::StatusCode::BAD_REQUEST,
             _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status, axum::Json(serde_json::json!({ "error": self.to_string() }))).into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use axum::response::IntoResponse;
+
+    /// A failed signature is an authentication failure (401), the same status
+    /// the HTTP layer in `ac-api` documents, not a generic 400.
+    #[test]
+    fn invalid_signature_is_unauthorized() {
+        let resp = AcError::InvalidSignature("bad".into()).into_response();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 }
