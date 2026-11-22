@@ -9,6 +9,7 @@
 //! `/docs` and the raw OpenAPI specification at `/api/openapi.json`.
 
 use crate::middleware::auth::authenticate;
+use crate::middleware::idempotency::enforce_idempotency;
 use crate::middleware::rate_limit::{RateLimiter, rate_limit as rate_limit_mw};
 use ac_db::pool::SharedPool;
 use ac_metrics::middleware::record_metrics;
@@ -28,6 +29,16 @@ use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
 use crate::routes::ApiDoc;
+
+/// Require a verified signature, then apply `Idempotency-Key` handling.
+///
+/// `route_layer` calls wrap outward, so authentication is added last and
+/// therefore runs first; the idempotency layer can then key on the verified id.
+fn protect(router: Router, pool: &SharedPool) -> Router {
+    router
+        .route_layer(from_fn_with_state(pool.clone(), enforce_idempotency))
+        .route_layer(from_fn_with_state(pool.clone(), authenticate))
+}
 
 /// Create the main application router with all sub-routes mounted.
 ///
@@ -60,23 +71,15 @@ pub fn create_app(pool: SharedPool, metrics: Metrics, rate_limiter: RateLimiter)
         )
         .nest(
             "/v1/agents",
-            ac_registry::handler::public_routes(pool.clone()).merge(
-                ac_registry::handler::protected_routes(pool.clone())
-                    .route_layer(from_fn_with_state(pool.clone(), authenticate)),
-            ),
+            ac_registry::handler::public_routes(pool.clone())
+                .route_layer(from_fn_with_state(pool.clone(), enforce_idempotency))
+                .merge(protect(ac_registry::handler::protected_routes(pool.clone()), &pool)),
         )
         .merge(ac_directory::well_known::routes(pool.clone()))
         .merge(ac_directory::handler::public_routes(pool.clone()))
-        .merge(
-            ac_directory::handler::protected_routes(pool.clone())
-                .route_layer(from_fn_with_state(pool.clone(), authenticate)),
-        )
+        .merge(protect(ac_directory::handler::protected_routes(pool.clone()), &pool))
         .nest("/v1/discovery", ac_discovery::handler::routes(pool.clone()))
-        .nest(
-            "/v1/messages",
-            ac_mailbox::handler::routes(pool.clone())
-                .route_layer(from_fn_with_state(pool.clone(), authenticate)),
-        )
+        .nest("/v1/messages", protect(ac_mailbox::handler::routes(pool.clone()), &pool))
         .nest("/v1/tasks", ac_tasks::handler::routes(pool.clone()))
         .nest("/v1/validations", ac_validation::handler::routes(pool.clone()))
         .nest("/v1/agents", ac_reputation::handler::routes(pool.clone()))

@@ -39,7 +39,9 @@ async fn idempotency_duplicate_requests() {
         "profile": { "name": "Idempotency Agent" }
     });
 
-    let idempotency_key = "idem-key-test-001";
+    // Unique per run: the dev database persists between runs.
+    let idempotency_key = format!("idem-{agent_id}");
+    let idempotency_key = idempotency_key.as_str();
 
     // First request — should execute normally
     let json_str = serde_json::to_string(&body).unwrap();
@@ -103,7 +105,7 @@ async fn idempotency_different_keys() {
         .method("POST")
         .uri("/v1/agents/register".parse::<axum::http::Uri>().unwrap())
         .header(header::CONTENT_TYPE, "application/json")
-        .header("Idempotency-Key", "idem-key-1")
+        .header("Idempotency-Key", format!("idem-{agent_id1}"))
         .body(Body::from(json_str1))
         .unwrap();
     let resp1 = app.request(req1).await;
@@ -113,7 +115,7 @@ async fn idempotency_different_keys() {
         .method("POST")
         .uri("/v1/agents/register".parse::<axum::http::Uri>().unwrap())
         .header(header::CONTENT_TYPE, "application/json")
-        .header("Idempotency-Key", "idem-key-2")
+        .header("Idempotency-Key", format!("idem-{agent_id2}"))
         .body(Body::from(json_str2))
         .unwrap();
     let resp2 = app.request(req2).await;

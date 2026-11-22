@@ -259,6 +259,24 @@ impl TestAgent {
     }
 }
 
+impl TestAgent {
+    /// Like [`TestAgent::request`], with an `Idempotency-Key` header (not part of the signature).
+    pub fn request_with_key(
+        &self,
+        method: &str,
+        path_and_query: &str,
+        body: Option<&serde_json::Value>,
+        idempotency_key: &str,
+    ) -> Request<Body> {
+        let mut req = self.request(method, path_and_query, body);
+        req.headers_mut().insert(
+            "idempotency-key",
+            idempotency_key.parse().expect("idempotency key is a valid header value"),
+        );
+        req
+    }
+}
+
 /// Turn a [`SignedRequest`] plus a body into an HTTP request.
 ///
 /// The request line comes from the signed fields, and the body is supplied

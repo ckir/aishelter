@@ -10,6 +10,7 @@ mod auth;
 mod directory_authz;
 mod discovery;
 mod harness;
+mod idempotency;
 mod mailbox;
 mod mailbox_authz;
 mod middleware;
