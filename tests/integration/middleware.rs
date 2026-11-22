@@ -1,27 +1,19 @@
-//! Integration tests for idempotency and nonce replay middleware.
+//! Integration tests for the idempotency middleware.
 //!
 //! Covers:
 //! - Idempotency: duplicate requests with same key return cached response
 //! - Idempotency: different keys execute independently
 //! - Idempotency: missing key passes through normally
-//! - Nonce: valid nonce accepted
-//! - Nonce: reused nonce rejected (400)
-//! - Nonce: missing timestamp rejected (400)
-//! - Nonce: expired timestamp rejected (400)
+//!
+//! Request authentication and nonce replay are covered in `auth.rs`.
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
-use chrono::Utc;
 use ed25519_dalek::SigningKey;
 use rand_core::OsRng;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 
 use crate::harness::TestApp;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 fn make_keypair() -> (String, String) {
     let signing_key = SigningKey::generate(&mut OsRng);
@@ -29,47 +21,6 @@ fn make_keypair() -> (String, String) {
     let agent_id = format!("agent_test_{}", hex::encode(public_key.to_bytes()));
     let public_key_hex = hex::encode(public_key.to_bytes());
     (agent_id, public_key_hex)
-}
-
-async fn register_agent(app: &TestApp) -> (String, String) {
-    let (agent_id, public_key) = make_keypair();
-    let body = json!({
-        "agent_id": agent_id,
-        "public_key": public_key,
-        "profile": { "name": "Test Agent", "description": "Middleware test agent" }
-    });
-    let resp = app.post_json("/v1/agents/register", body).await;
-    assert_eq!(TestApp::status(&resp), StatusCode::OK);
-    (agent_id, public_key)
-}
-
-fn build_signed_request(
-    path: &str,
-    method: &str,
-    agent_id: &str,
-    body: Option<String>,
-    nonce: &str,
-) -> Request<Body> {
-    let timestamp = Utc::now().timestamp().to_string();
-    let body_str = body.unwrap_or_default();
-    let body_hash = hex::encode(Sha256::digest(body_str.as_bytes()));
-
-    // Canonical string to sign. Not signed yet: the signature header below is a
-    // placeholder until the middleware is wired in and verifies real signatures.
-    let _to_sign = format!("{agent_id}\n{timestamp}\n{nonce}\n{method}\n{path}\n{body_hash}");
-
-    let uri = path.parse::<axum::http::Uri>().expect("invalid URI");
-    let mut builder = Request::builder().method(method).uri(uri);
-
-    // Add auth headers
-    builder = builder
-        .header("X-Agent-Id", agent_id)
-        .header("X-Agent-Timestamp", &timestamp)
-        .header("X-Agent-Nonce", nonce)
-        .header("X-Agent-Signature", "test_signature_placeholder")
-        .header("Content-Type", "application/json");
-
-    builder.body(Body::from(body_str)).expect("failed to build request")
 }
 
 // ---------------------------------------------------------------------------
@@ -193,132 +144,4 @@ async fn idempotency_no_key_passes_through() {
     let resp2 = app.post_json("/v1/agents/register", body).await;
     // Same public_key should conflict (409) since no idempotency caching
     assert_eq!(TestApp::status(&resp2), StatusCode::CONFLICT);
-}
-
-// ---------------------------------------------------------------------------
-// Nonce replay tests
-// ---------------------------------------------------------------------------
-
-/// Valid nonce with valid timestamp is accepted.
-#[tokio::test]
-async fn nonce_valid_accepted() {
-    let app = TestApp::setup().await;
-    let (agent_id, _public_key) = register_agent(&app).await;
-
-    let nonce = "nonce-valid-test-001";
-    let body = json!({
-        "agent_id": agent_id,
-        "name": "Updated Name",
-        "description": "Updated description"
-    });
-    let body_str = serde_json::to_string(&body).unwrap();
-
-    let req = build_signed_request(
-        &format!("/v1/agents/{agent_id}/card"),
-        "PUT",
-        &agent_id,
-        Some(body_str),
-        nonce,
-    );
-
-    let resp = app.request(req).await;
-    // Should succeed (signature validation may fail in test, but nonce should pass)
-    // The nonce check should NOT reject this request
-    let status = TestApp::status(&resp);
-    // We expect either 200 (full success) or 401 (signature mismatch),
-    // but NOT 400 (nonce/timestamp rejection)
-    assert!(
-        status == StatusCode::OK || status == StatusCode::UNAUTHORIZED,
-        "expected OK or UNAUTHORIZED (sig check), got {status} — nonce was rejected"
-    );
-}
-
-/// Reused nonce is rejected with 400 Bad Request.
-#[tokio::test]
-async fn nonce_reused_rejected() {
-    let app = TestApp::setup().await;
-    let (agent_id, _public_key) = register_agent(&app).await;
-
-    let nonce = "nonce-reused-test-001";
-    let body = json!({
-        "agent_id": agent_id,
-        "name": "First Request",
-        "description": "First"
-    });
-    let body_str = serde_json::to_string(&body).unwrap();
-
-    // First request with nonce
-    let req1 = build_signed_request(
-        &format!("/v1/agents/{agent_id}/card"),
-        "PUT",
-        &agent_id,
-        Some(body_str),
-        nonce,
-    );
-    let _resp1 = app.request(req1).await;
-
-    // Second request with same nonce — should be rejected
-    let body2 = json!({
-        "agent_id": agent_id,
-        "name": "Second Request",
-        "description": "Second"
-    });
-    let body_str2 = serde_json::to_string(&body2).unwrap();
-    let req2 = build_signed_request(
-        &format!("/v1/agents/{agent_id}/card"),
-        "PUT",
-        &agent_id,
-        Some(body_str2),
-        nonce,
-    );
-    let resp2 = app.request(req2).await;
-    let status = TestApp::status(&resp2);
-    // Should be 400 (nonce replay) or 401 (signature), but NOT succeed
-    assert!(status.is_client_error(), "expected 4xx client error for reused nonce, got {status}");
-}
-
-/// Missing X-Agent-Timestamp is rejected with 400.
-#[tokio::test]
-async fn nonce_missing_timestamp_rejected() {
-    let app = TestApp::setup().await;
-    let (agent_id, _public_key) = register_agent(&app).await;
-
-    let uri = format!("/v1/agents/{agent_id}").parse::<axum::http::Uri>().unwrap();
-    let req = Request::builder()
-        .method("GET")
-        .uri(uri)
-        .header("X-Agent-Id", &agent_id)
-        .header("X-Agent-Nonce", "nonce-no-timestamp")
-        // No X-Agent-Timestamp header
-        .body(Body::empty())
-        .unwrap();
-
-    let resp = app.request(req).await;
-    let status = TestApp::status(&resp);
-    assert_eq!(status, StatusCode::BAD_REQUEST, "expected 400 for missing timestamp, got {status}");
-}
-
-/// Expired timestamp (beyond 300s skew) is rejected with 400.
-#[tokio::test]
-async fn nonce_expired_timestamp_rejected() {
-    let app = TestApp::setup().await;
-    let (agent_id, _public_key) = register_agent(&app).await;
-
-    // Use a timestamp from 10 minutes ago (beyond 300s skew)
-    let old_timestamp = (Utc::now().timestamp() - 600).to_string();
-    let nonce = "nonce-expired-test-001";
-
-    let uri = format!("/v1/agents/{agent_id}").parse::<axum::http::Uri>().unwrap();
-    let req = Request::builder()
-        .method("GET")
-        .uri(uri)
-        .header("X-Agent-Id", &agent_id)
-        .header("X-Agent-Timestamp", &old_timestamp)
-        .header("X-Agent-Nonce", nonce)
-        .body(Body::empty())
-        .unwrap();
-
-    let resp = app.request(req).await;
-    let status = TestApp::status(&resp);
-    assert_eq!(status, StatusCode::BAD_REQUEST, "expected 400 for expired timestamp, got {status}");
 }

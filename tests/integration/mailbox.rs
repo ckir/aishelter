@@ -1,137 +1,94 @@
 //! Integration tests for `/v1/messages` mailbox endpoints.
 //!
-//! Covers the asynchronous message lifecycle:
+//! Covers the asynchronous message lifecycle with signed requests:
 //! - Sending a message between registered agents
 //! - Retrieving messages from an agent's mailbox
 //! - Acknowledging messages to mark them as processed
 //! - Sending to a nonexistent agent (rejection)
 //!
-//! Each test is self-contained and duplicates the `make_keypair` and
-//! `register_agent` helpers so this file compiles independently.
+//! Identity binding (who may send as whom, who may read what) is covered in
+//! `mailbox_authz.rs`.
 
 use axum::http::StatusCode;
-use ed25519_dalek::SigningKey;
-use hex::encode;
-use rand_core::OsRng;
 use serde_json::json;
 
 use crate::harness::TestApp;
-
-/// Generate a fresh Ed25519 keypair for testing.
-///
-/// Returns a tuple of `(agent_id, public_key_hex)` where `agent_id` is a
-/// deterministic string and `public_key_hex` is the 64-character hex-encoded
-/// Ed25519 public key.
-fn make_keypair() -> (String, String) {
-    let signing_key = SigningKey::generate(&mut OsRng);
-    let public_key = signing_key.verifying_key();
-    let agent_id = format!("agent_test_{}", hex::encode(public_key.to_bytes()));
-    let public_key_hex = encode(public_key.to_bytes());
-    (agent_id, public_key_hex)
-}
-
-/// Register a new agent and return its `agent_id`.
-async fn register_agent(app: &TestApp) -> String {
-    let (agent_id, public_key) = make_keypair();
-    let body = json!({
-        "agent_id": agent_id,
-        "public_key": public_key,
-        "profile": {
-            "name": "Test Agent",
-            "description": "A test agent for mailbox integration tests"
-        }
-    });
-    let resp = app.post_json("/v1/agents/register", body).await;
-    assert_eq!(TestApp::status(&resp), StatusCode::OK, "register_agent helper: expected 200 OK");
-    let resp_json: serde_json::Value = TestApp::json_body(resp).await;
-    resp_json["agent_id"].as_str().unwrap().to_string()
-}
 
 /// POST /v1/messages — valid message between registered agents returns 200.
 #[tokio::test]
 async fn send_message_success() {
     let app = TestApp::setup().await;
-    let sender = register_agent(&app).await;
-    let receiver = register_agent(&app).await;
+    let sender = app.register_agent().await;
+    let receiver = app.register_agent().await;
 
-    let resp = app
-        .post_json(
-            "/v1/messages",
-            json!({
-                "from_agent_id": sender,
-                "to_agent_id": receiver,
-                "type": "task.offer",
-                "payload": {"task": "research"}
-            }),
-        )
-        .await;
+    let body = json!({
+        "from_agent_id": sender.id,
+        "to_agent_id": receiver.id,
+        "type": "task.offer",
+        "payload": {"task": "research"}
+    });
+    let resp = app.send_signed(&sender, "POST", "/v1/messages", Some(&body)).await;
     assert_eq!(TestApp::status(&resp), StatusCode::OK);
 }
 
-/// GET /v1/messages — retrieve messages for an agent returns 200.
+/// GET /v1/messages — the recipient retrieves their own mailbox.
 #[tokio::test]
 async fn get_messages_success() {
     let app = TestApp::setup().await;
-    let sender = register_agent(&app).await;
-    let receiver = register_agent(&app).await;
+    let sender = app.register_agent().await;
+    let receiver = app.register_agent().await;
 
-    // Send a message first.
-    app.post_json(
-        "/v1/messages",
-        json!({
-            "from_agent_id": sender,
-            "to_agent_id": receiver,
-            "type": "test",
-            "payload": {}
-        }),
-    )
-    .await;
+    let body = json!({
+        "from_agent_id": sender.id,
+        "to_agent_id": receiver.id,
+        "type": "test",
+        "payload": {}
+    });
+    let sent = app.send_signed(&sender, "POST", "/v1/messages", Some(&body)).await;
+    assert_eq!(TestApp::status(&sent), StatusCode::OK);
 
-    let resp = app.get(&format!("/v1/messages?agent_id={}", receiver)).await;
+    let path = format!("/v1/messages?agent_id={}", receiver.id);
+    let resp = app.send_signed(&receiver, "GET", &path, None).await;
     assert_eq!(TestApp::status(&resp), StatusCode::OK);
+    let json: serde_json::Value = TestApp::json_body(resp).await;
+    assert_eq!(json["messages"].as_array().map(Vec::len), Some(1));
 }
 
 /// POST /v1/messages — sending to a nonexistent agent returns 4xx.
 #[tokio::test]
 async fn send_message_nonexistent_agent() {
     let app = TestApp::setup().await;
-    let sender = register_agent(&app).await;
+    let sender = app.register_agent().await;
 
-    let resp = app
-        .post_json(
-            "/v1/messages",
-            json!({
-                "from_agent_id": sender,
-                "to_agent_id": "nonexistent_agent_id",
-                "type": "test",
-                "payload": {}
-            }),
-        )
-        .await;
+    let body = json!({
+        "from_agent_id": sender.id,
+        "to_agent_id": "nonexistent_agent_id",
+        "type": "test",
+        "payload": {}
+    });
+    let resp = app.send_signed(&sender, "POST", "/v1/messages", Some(&body)).await;
     assert!(TestApp::status(&resp).is_client_error());
 }
 
-/// POST /v1/messages/{id}/ack — acknowledging a message returns 200.
+/// POST /v1/messages/{id}/ack — the recipient acknowledges a message.
 #[tokio::test]
 async fn acknowledge_message_success() {
     let app = TestApp::setup().await;
-    let sender = register_agent(&app).await;
-    let receiver = register_agent(&app).await;
+    let sender = app.register_agent().await;
+    let receiver = app.register_agent().await;
 
-    let send_resp = app
-        .post_json(
-            "/v1/messages",
-            json!({
-                "from_agent_id": sender,
-                "to_agent_id": receiver,
-                "type": "test",
-                "payload": {}
-            }),
-        )
-        .await;
-    let body: serde_json::Value = TestApp::json_body(send_resp).await;
-    let msg_id = body["message_id"].as_str().expect("response should contain message_id");
+    let body = json!({
+        "from_agent_id": sender.id,
+        "to_agent_id": receiver.id,
+        "type": "test",
+        "payload": {}
+    });
+    let send_resp = app.send_signed(&sender, "POST", "/v1/messages", Some(&body)).await;
+    assert_eq!(TestApp::status(&send_resp), StatusCode::OK);
+    let sent: serde_json::Value = TestApp::json_body(send_resp).await;
+    let msg_id = sent["message_id"].as_str().expect("response should contain message_id");
 
-    let resp = app.post(&format!("/v1/messages/{}/ack", msg_id)).await;
+    let path = format!("/v1/messages/{msg_id}/ack");
+    let resp = app.send_signed(&receiver, "POST", &path, None).await;
     assert_eq!(TestApp::status(&resp), StatusCode::OK);
 }

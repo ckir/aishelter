@@ -6,6 +6,7 @@
 //! Run with: `cargo nextest run --test integration`
 
 mod adversarial;
+mod auth;
 mod discovery;
 mod harness;
 mod mailbox;

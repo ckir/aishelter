@@ -81,11 +81,11 @@ async fn register_agent_success() {
 #[tokio::test]
 async fn register_agent_duplicate_public_key() {
     let app = TestApp::setup().await;
-    let (_agent_id, public_key) = make_keypair();
+    let (agent_id, public_key) = make_keypair();
 
     // First registration should succeed.
     let body1 = json!({
-        "agent_id": "agent_first",
+        "agent_id": agent_id,
         "public_key": public_key,
         "profile": { "name": "First Agent" }
     });
@@ -94,7 +94,7 @@ async fn register_agent_duplicate_public_key() {
 
     // Second registration with the same public key should fail.
     let body2 = json!({
-        "agent_id": "agent_second",
+        "agent_id": format!("{agent_id}_second"),
         "public_key": public_key,
         "profile": { "name": "Second Agent" }
     });

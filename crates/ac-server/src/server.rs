@@ -8,12 +8,18 @@
 //! The server also hosts the Scalar interactive API documentation at
 //! `/docs` and the raw OpenAPI specification at `/api/openapi.json`.
 
+use crate::middleware::auth::authenticate;
 use crate::middleware::rate_limit::{RateLimiter, rate_limit as rate_limit_mw};
 use ac_db::pool::SharedPool;
 use ac_metrics::middleware::record_metrics;
 use ac_metrics::readiness;
 use ac_metrics::registry::Metrics;
-use axum::{Router, extract::Extension, middleware::from_fn, routing::get};
+use axum::{
+    Router,
+    extract::Extension,
+    middleware::{from_fn, from_fn_with_state},
+    routing::get,
+};
 use http::header::HeaderName;
 use tower_http::request_id::{MakeRequestUuid, SetRequestIdLayer};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
@@ -56,7 +62,11 @@ pub fn create_app(pool: SharedPool, metrics: Metrics, rate_limiter: RateLimiter)
         .merge(ac_directory::well_known::routes(pool.clone()))
         .merge(ac_directory::handler::routes(pool.clone()))
         .nest("/v1/discovery", ac_discovery::handler::routes(pool.clone()))
-        .nest("/v1/messages", ac_mailbox::handler::routes(pool.clone()))
+        .nest(
+            "/v1/messages",
+            ac_mailbox::handler::routes(pool.clone())
+                .route_layer(from_fn_with_state(pool.clone(), authenticate)),
+        )
         .nest("/v1/tasks", ac_tasks::handler::routes(pool.clone()))
         .nest("/v1/validations", ac_validation::handler::routes(pool.clone()))
         .nest("/v1/agents", ac_reputation::handler::routes(pool.clone()))
