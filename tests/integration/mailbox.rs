@@ -98,7 +98,7 @@ async fn acknowledge_message_success() {
     assert_eq!(TestApp::status(&resp), StatusCode::OK);
 }
 
-/// POST /v1/messages — an unparseable `expires_at` is rejected, not silently
+/// POST /v1/messages — an unparsable `expires_at` is rejected, not silently
 /// dropped (which would store an immortal message the sender meant to expire).
 #[tokio::test]
 async fn send_message_with_malformed_expires_at_is_400() {
