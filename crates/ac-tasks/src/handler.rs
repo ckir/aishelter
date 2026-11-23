@@ -8,9 +8,11 @@
 //! - `POST /{id}/result` — submit a task result
 
 use ac_db::pool::SharedPool;
+use ac_types::auth::AuthenticatedAgent;
+use ac_types::error::AcError;
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     routing::{get, post},
 };
 use serde::Deserialize;
@@ -19,13 +21,33 @@ use crate::service::TaskService;
 
 /// Build the task router with all five endpoints.
 pub fn routes(pool: SharedPool) -> Router {
+    public_routes(pool.clone()).merge(protected_routes(pool))
+}
+
+/// Read-only task lookup, open to anyone.
+pub fn public_routes(pool: SharedPool) -> Router {
+    Router::new().route("/{id}", get(get_task)).with_state(pool)
+}
+
+/// Routes that change task state. The server must layer authentication over
+/// this router; each handler then checks that the verified caller is the agent
+/// named in the request body.
+pub fn protected_routes(pool: SharedPool) -> Router {
     Router::new()
         .route("/", post(create_task))
-        .route("/{id}", get(get_task))
         .route("/{id}/accept", post(accept_task))
         .route("/{id}/reject", post(reject_task))
         .route("/{id}/result", post(submit_result))
         .with_state(pool)
+}
+
+/// The body must name the verified caller; anything else is a 403.
+fn require_caller(caller: &str, named: &str, what: &str) -> Result<(), AcError> {
+    if caller == named {
+        Ok(())
+    } else {
+        Err(AcError::Forbidden(format!("{what} must be the authenticated agent")))
+    }
 }
 
 /// Request body for [`create_task`].
@@ -73,6 +95,7 @@ pub struct SubmitResultRequest {
 #[utoipa::path(
     post,
     path = "/v1/tasks",
+    security(("AgentSignature" = [])),
     tag = "tasks",
     request_body = CreateTaskRequest,
     responses(
@@ -81,8 +104,10 @@ pub struct SubmitResultRequest {
 )]
 pub async fn create_task(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Json(req): Json<CreateTaskRequest>,
-) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+) -> Result<Json<serde_json::Value>, AcError> {
+    require_caller(&caller, &req.requester, "requester")?;
     let pool = pool.load();
     let service = TaskService::new(pool);
     let verification_method = req.verification_method.unwrap_or_else(|| "peer".to_string());
@@ -128,6 +153,7 @@ pub async fn get_task(
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/accept",
+    security(("AgentSignature" = [])),
     tag = "tasks",
     request_body = TaskActionRequest,
     params(
@@ -136,14 +162,18 @@ pub async fn get_task(
     responses(
         (status = 200, description = "Task accepted", body = serde_json::Value),
         (status = 400, description = "Invalid state transition"),
+        (status = 401, description = "Missing or invalid request signature"),
+        (status = 403, description = "agent_id is not the authenticated agent"),
         (status = 404, description = "Task not found"),
     ),
 )]
 pub async fn accept_task(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Path(id): Path<String>,
     Json(req): Json<TaskActionRequest>,
-) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+) -> Result<Json<serde_json::Value>, AcError> {
+    require_caller(&caller, &req.agent_id, "agent_id")?;
     let pool = pool.load();
     let service = TaskService::new(pool);
     service.accept_task(&id, &req.agent_id).await?;
@@ -153,6 +183,7 @@ pub async fn accept_task(
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/reject",
+    security(("AgentSignature" = [])),
     tag = "tasks",
     request_body = TaskActionRequest,
     params(
@@ -166,9 +197,11 @@ pub async fn accept_task(
 )]
 pub async fn reject_task(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Path(id): Path<String>,
     Json(req): Json<TaskActionRequest>,
-) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+) -> Result<Json<serde_json::Value>, AcError> {
+    require_caller(&caller, &req.agent_id, "agent_id")?;
     let pool = pool.load();
     let service = TaskService::new(pool);
     service.reject_task(&id, &req.agent_id).await?;
@@ -178,6 +211,7 @@ pub async fn reject_task(
 #[utoipa::path(
     post,
     path = "/v1/tasks/{id}/result",
+    security(("AgentSignature" = [])),
     tag = "tasks",
     request_body = SubmitResultRequest,
     params(
@@ -191,9 +225,11 @@ pub async fn reject_task(
 )]
 pub async fn submit_result(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Path(id): Path<String>,
     Json(req): Json<SubmitResultRequest>,
-) -> Result<Json<serde_json::Value>, ac_types::error::AcError> {
+) -> Result<Json<serde_json::Value>, AcError> {
+    require_caller(&caller, &req.agent_id, "agent_id")?;
     let pool = pool.load();
     let service = TaskService::new(pool);
     service.submit_result(&id, &req.agent_id, req.result, &req.output_hash).await?;

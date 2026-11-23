@@ -178,12 +178,22 @@ async fn spec_documents_request_signing_on_protected_operations_only() {
         ("/v1/messages/{id}", "get"),
         ("/v1/messages/{id}/ack", "post"),
         ("/v1/agents/{id}/card", "put"),
+        ("/v1/tasks", "post"),
+        ("/v1/tasks/{id}/accept", "post"),
+        ("/v1/tasks/{id}/reject", "post"),
+        ("/v1/tasks/{id}/result", "post"),
+        ("/v1/validations/{task_id}/validate", "post"),
     ] {
         assert!(secured(path, method), "{method} {path} must require AgentSignature");
     }
-    for (path, method) in
-        [("/v1/health", "get"), ("/v1/agents/register", "post"), ("/v1/agents/{id}", "get")]
-    {
+    for (path, method) in [
+        ("/v1/health", "get"),
+        ("/v1/agents/register", "post"),
+        ("/v1/agents/{id}", "get"),
+        ("/v1/tasks/{id}", "get"),
+        ("/v1/validations/{task_id}", "get"),
+        ("/v1/agents/{id}/reputation", "get"),
+    ] {
         assert!(!secured(path, method), "{method} {path} is public");
     }
 }

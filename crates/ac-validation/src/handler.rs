@@ -5,9 +5,11 @@
 //! - `GET /{task_id}` — retrieve all validation decisions for a task
 
 use ac_db::pool::SharedPool;
+use ac_types::auth::AuthenticatedAgent;
+use ac_types::error::AcError;
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
@@ -17,10 +19,19 @@ use crate::service::ValidationService;
 
 /// Build the validation router with the given database pool.
 pub fn routes(pool: SharedPool) -> Router {
-    Router::new()
-        .route("/{task_id}/validate", post(validate_task))
-        .route("/{task_id}", get(get_validations))
-        .with_state(pool)
+    public_routes(pool.clone()).merge(protected_routes(pool))
+}
+
+/// Read-only validation history, open to anyone.
+pub fn public_routes(pool: SharedPool) -> Router {
+    Router::new().route("/{task_id}", get(get_validations)).with_state(pool)
+}
+
+/// Casting a vote requires a verified signature (the server layers
+/// authentication over this router) and the caller must be the validator named
+/// in the body.
+pub fn protected_routes(pool: SharedPool) -> Router {
+    Router::new().route("/{task_id}/validate", post(validate_task)).with_state(pool)
 }
 
 /// Request body for submitting a validation decision.
@@ -48,6 +59,7 @@ pub struct ValidateResponse {
 #[utoipa::path(
     post,
     path = "/v1/validations/{task_id}/validate",
+    security(("AgentSignature" = [])),
     tag = "validation",
     request_body = ValidateRequest,
     params(
@@ -57,14 +69,20 @@ pub struct ValidateResponse {
         (status = 200, description = "Quorum decision", body = ValidateResponse,
          example = json!({"decision": "verified"})),
         (status = 400, description = "Invalid request"),
+        (status = 401, description = "Missing or invalid request signature"),
+        (status = 403, description = "validator_id is not the authenticated agent"),
         (status = 404, description = "Task not found"),
     ),
 )]
 pub async fn validate_task(
     State(pool): State<SharedPool>,
+    Extension(AuthenticatedAgent(caller)): Extension<AuthenticatedAgent>,
     Path(task_id): Path<String>,
     Json(req): Json<ValidateRequest>,
-) -> Result<Json<ValidateResponse>, ac_types::error::AcError> {
+) -> Result<Json<ValidateResponse>, AcError> {
+    if caller != req.validator_id {
+        return Err(AcError::Forbidden("validator_id must be the authenticated agent".to_string()));
+    }
     let pool = pool.load();
     let service = ValidationService::new(pool);
     let decision = service

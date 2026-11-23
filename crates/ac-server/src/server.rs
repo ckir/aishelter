@@ -82,8 +82,16 @@ pub fn create_app(pool: SharedPool, metrics: Metrics, rate_limiter: RateLimiter)
         .merge(protect(ac_directory::handler::protected_routes(pool.clone()), &pool))
         .nest("/v1/discovery", ac_discovery::handler::routes(pool.clone()))
         .nest("/v1/messages", protect(ac_mailbox::handler::routes(pool.clone()), &pool))
-        .nest("/v1/tasks", ac_tasks::handler::routes(pool.clone()))
-        .nest("/v1/validations", ac_validation::handler::routes(pool.clone()))
+        .nest(
+            "/v1/tasks",
+            ac_tasks::handler::public_routes(pool.clone())
+                .merge(protect(ac_tasks::handler::protected_routes(pool.clone()), &pool)),
+        )
+        .nest(
+            "/v1/validations",
+            ac_validation::handler::public_routes(pool.clone())
+                .merge(protect(ac_validation::handler::protected_routes(pool.clone()), &pool)),
+        )
         .nest("/v1/agents", ac_reputation::handler::routes(pool.clone()))
         .layer(from_fn(rate_limit_mw))
         .layer(Extension(rate_limiter))

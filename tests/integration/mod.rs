@@ -21,4 +21,6 @@ mod registry;
 mod registry_authz;
 mod reputation;
 mod tasks;
+mod tasks_authz;
 mod validation;
+mod validation_authz;

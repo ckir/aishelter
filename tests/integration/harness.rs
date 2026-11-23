@@ -164,6 +164,26 @@ impl TestApp {
         resp.status()
     }
 
+    /// Create a task as `requester` (signed) and return its id.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the server does not answer 200 with a `task_id`.
+    pub async fn create_task(&self, requester: &TestAgent) -> String {
+        let body = serde_json::json!({
+            "requester": requester.id,
+            "capability": "research",
+            "description": "test task",
+            "input": {},
+            "verification_method": "peer",
+            "required_validators": 1
+        });
+        let resp = self.send_signed(requester, "POST", "/v1/tasks", Some(&body)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "create_task helper");
+        let json: serde_json::Value = Self::json_body(resp).await;
+        json["task_id"].as_str().expect("task_id").to_string()
+    }
+
     /// Register a fresh agent through the public endpoint and return it.
     ///
     /// # Panics
