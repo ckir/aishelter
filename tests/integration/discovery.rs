@@ -80,9 +80,13 @@ async fn register_agent_with_capability(app: &TestApp, capability: &str, version
 #[tokio::test]
 async fn discovery_search_by_capability() {
     let app = TestApp::setup().await;
-    let agent_id = register_agent_with_capability(&app, "fact_verification", "v1").await;
+    // Unique per run: search returns at most 20 rows, and a database that
+    // persists between runs accumulates agents with a fixed capability name.
+    let capability = format!("fact_verification_{}", uuid::Uuid::new_v4().simple());
+    let agent_id = register_agent_with_capability(&app, &capability, "v1").await;
 
-    let resp = app.get("/v1/discovery/search?capability=fact_verification&status=REGISTERED").await;
+    let resp =
+        app.get(&format!("/v1/discovery/search?capability={capability}&status=REGISTERED")).await;
     let status = TestApp::status(&resp);
     assert_eq!(status, StatusCode::OK);
 

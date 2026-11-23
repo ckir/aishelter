@@ -11,11 +11,13 @@
 //! - suspended agents and oversized bodies are rejected
 //! - public routes stay open without credentials
 
-use axum::http::StatusCode;
+use axum::http::{HeaderName, HeaderValue, StatusCode};
 use chrono::{Duration, Utc};
 use serde_json::json;
 
-use ac_crypto::signature::SignedRequest;
+use ac_crypto::signature::{
+    SignedRequest, X_AGENT_ID, X_AGENT_NONCE, X_AGENT_SIGNATURE, X_AGENT_TIMESTAMP,
+};
 
 use crate::harness::{TestAgent, TestApp, request_from_signed};
 
@@ -292,4 +294,96 @@ async fn handler_still_receives_the_body_after_verification() {
     });
     let resp = app.send_signed(&sender, "POST", "/v1/messages", Some(&body)).await;
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+// ---- credential header bounds and the 401 challenge --------------------------
+
+/// A correctly signed GET with one credential header replaced afterwards.
+fn with_header(
+    agent: &TestAgent,
+    name: &'static str,
+    value: &str,
+) -> axum::http::Request<axum::body::Body> {
+    let signed = agent.sign_at("GET", &list_own(agent), b"", &TestAgent::nonce(), &ts(0));
+    let mut req = request_from_signed(&signed, vec![]);
+    req.headers_mut().insert(HeaderName::from_static(name), HeaderValue::from_str(value).unwrap());
+    req
+}
+
+#[tokio::test]
+async fn oversized_credential_headers_are_400() {
+    let app = TestApp::setup().await;
+    let agent = app.register_agent().await;
+
+    for (name, len) in [(X_AGENT_ID, 257), (X_AGENT_NONCE, 129), (X_AGENT_SIGNATURE, 257)] {
+        let resp = app.request(with_header(&agent, name, &"a".repeat(len))).await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "{name} of {len} bytes");
+    }
+}
+
+#[tokio::test]
+async fn empty_credential_headers_are_400() {
+    let app = TestApp::setup().await;
+    let agent = app.register_agent().await;
+
+    for name in [X_AGENT_ID, X_AGENT_TIMESTAMP, X_AGENT_NONCE, X_AGENT_SIGNATURE] {
+        let resp = app.request(with_header(&agent, name, "")).await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "empty {name}");
+    }
+}
+
+/// The limit is inclusive: a 128-byte nonce is accepted, a 129-byte one is not.
+#[tokio::test]
+async fn a_nonce_exactly_at_the_length_limit_is_accepted() {
+    let app = TestApp::setup().await;
+    let agent = app.register_agent().await;
+
+    let nonce = "n".repeat(127) + &uuid::Uuid::new_v4().simple().to_string()[..1];
+    assert_eq!(nonce.len(), 128);
+    let signed = agent.sign_at("GET", &list_own(&agent), b"", &nonce, &ts(0));
+    let resp = app.request(request_from_signed(&signed, vec![])).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn unauthorized_responses_carry_the_authentication_challenge() {
+    let app = TestApp::setup().await;
+    let agent = app.register_agent().await;
+
+    // No credentials at all.
+    let none = app.get(&list_own(&agent)).await;
+    assert_eq!(none.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(none.headers().get("www-authenticate").unwrap(), "ACP1-Ed25519");
+
+    // Credentials that fail verification.
+    let forged = TestAgent::impostor_of(&agent.id);
+    let bad = app.send_signed(&forged, "GET", &list_own(&agent), None).await;
+    assert_eq!(bad.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(bad.headers().get("www-authenticate").unwrap(), "ACP1-Ed25519");
+
+    // A malformed request is a 400 and is not a challenge.
+    let stale = agent.sign_at("GET", &list_own(&agent), b"", &TestAgent::nonce(), &ts(-3600));
+    let resp = app.request(request_from_signed(&stale, vec![])).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert!(resp.headers().get("www-authenticate").is_none());
+}
+
+/// A header value with bytes outside visible ASCII (legal on the wire as
+/// obs-text, so the HTTP layer lets it through) is a malformed credential: 400,
+/// not "no credentials" (401) and not a panic.
+#[tokio::test]
+async fn non_text_credential_header_is_400() {
+    let app = TestApp::setup().await;
+    let agent = app.register_agent().await;
+
+    let signed = agent.sign("GET", &list_own(&agent), b"");
+    let mut req = request_from_signed(&signed, vec![]);
+    req.headers_mut().insert(
+        "x-agent-id",
+        axum::http::HeaderValue::from_bytes(&[0xff, 0xfe, b'x'])
+            .expect("obs-text is a legal value"),
+    );
+    let resp = app.request(req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert!(body_text(resp).await.contains("not valid text"));
 }

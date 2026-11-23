@@ -54,7 +54,7 @@ async fn get_messages_success() {
     assert_eq!(json["messages"].as_array().map(Vec::len), Some(1));
 }
 
-/// POST /v1/messages — sending to a nonexistent agent returns 4xx.
+/// POST /v1/messages — sending to a nonexistent agent is a 404 naming that agent.
 #[tokio::test]
 async fn send_message_nonexistent_agent() {
     let app = TestApp::setup().await;
@@ -67,7 +67,12 @@ async fn send_message_nonexistent_agent() {
         "payload": {}
     });
     let resp = app.send_signed(&sender, "POST", "/v1/messages", Some(&body)).await;
-    assert!(TestApp::status(&resp).is_client_error());
+    assert_eq!(TestApp::status(&resp), StatusCode::NOT_FOUND);
+    let json: serde_json::Value = TestApp::json_body(resp).await;
+    assert!(
+        json["error"].as_str().is_some_and(|e| e.contains("nonexistent_agent_id")),
+        "the error names the missing agent: {json}"
+    );
 }
 
 /// POST /v1/messages/{id}/ack — the recipient acknowledges a message.

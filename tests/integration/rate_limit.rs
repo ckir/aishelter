@@ -56,6 +56,20 @@ async fn naming_a_victim_in_a_header_cannot_drain_their_allowance() {
     for _ in 0..10 {
         assert_eq!(health_as(&app, &victim.id).await, StatusCode::OK);
     }
+    // The same header on a PROTECTED route, with no signature at all: refused
+    // by authentication, and it must not touch the victim's bucket either.
+    for _ in 0..10 {
+        let req = Request::builder()
+            .uri(format!("/v1/messages?agent_id={}", victim.id))
+            .header("X-Agent-Id", &victim.id)
+            .body(Body::empty())
+            .unwrap();
+        let status = app.request(req).await.status();
+        assert!(
+            status == StatusCode::BAD_REQUEST || status == StatusCode::UNAUTHORIZED,
+            "unsigned request is refused by authentication, got {status}"
+        );
+    }
     for i in 0..3 {
         assert_eq!(signed_get(&app, &victim).await, StatusCode::OK, "victim request {i}");
     }
@@ -89,4 +103,25 @@ async fn the_global_limit_still_applies_whatever_ids_are_claimed() {
         }
     }
     assert_eq!(limited, 5, "5 allowed by the global bucket, 5 rejected");
+}
+
+#[tokio::test]
+async fn rate_limited_responses_say_when_to_retry() {
+    // Global bucket: 1 request per 60s window.
+    let app = TestApp::setup_with_limits(1, 100, 60).await;
+    let first = app.get("/v1/health").await;
+    assert_eq!(first.status(), StatusCode::OK);
+    assert!(first.headers().get("retry-after").is_none(), "only 429s carry Retry-After");
+    let second = app.get("/v1/health").await;
+    assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(second.headers().get("retry-after").unwrap(), "60");
+
+    // Per-agent bucket: same contract, with the window it was configured with.
+    let app = TestApp::setup_with_limits(1000, 1, 45).await;
+    let agent = app.register_agent().await;
+    let path = format!("/v1/messages?agent_id={}", agent.id);
+    assert_eq!(app.send_signed(&agent, "GET", &path, None).await.status(), StatusCode::OK);
+    let limited = app.send_signed(&agent, "GET", &path, None).await;
+    assert_eq!(limited.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(limited.headers().get("retry-after").unwrap(), "45");
 }

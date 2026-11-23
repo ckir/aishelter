@@ -1,0 +1,9 @@
+# The maintenance tests create expired rows and run a background purge task,
+# which deletes expired rows database-wide. Run them one at a time so one test's
+# task cannot consume another test's rows on the shared database.
+[test-groups]
+purge-db = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = 'test(/^maintenance::/)'
+test-group = 'purge-db'
