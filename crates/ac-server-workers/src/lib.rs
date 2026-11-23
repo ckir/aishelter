@@ -12,7 +12,11 @@ fn router() -> Router {
 
 #[event(fetch)]
 async fn fetch(req: HttpRequest, _env: Env, _ctx: worker::Context) -> Result<HttpResponse> {
-    let axum_resp = router().oneshot(req).await.map_err(|e| worker::Error::from(e.to_string()))?;
+    // The router's error type is `Infallible`, so there is no error to convert.
+    let axum_resp = match router().oneshot(req).await {
+        Ok(resp) => resp,
+        Err(never) => match never {},
+    };
 
     let (parts, body) = axum_resp.into_parts();
     let bytes = body.collect().await.map_err(|e| worker::Error::from(e.to_string()))?.to_bytes();
