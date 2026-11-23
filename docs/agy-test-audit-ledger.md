@@ -1,0 +1,11 @@
+# AGY-TEST-AUDIT ledger
+
+One row per audit run: the evidence that the test safety-net was audited for a range.
+This is a RECORD, not a proof.
+
+Conventions (nothing validates them): the newest row goes at the BOTTOM, and every
+pipe character inside a cell must be written as `\|`.
+
+| Date | Range | Rounds | Verdict | Evidence |
+|---|---|---|---|---|
+| 2026-11-23 | d8327a0..9f13097 (signed-request auth: tests/integration auth, mailbox, mailbox_authz, registry_authz, directory_authz, idempotency, rate_limit, maintenance, openapi, middleware, harness; unit tests in ac-crypto signature, ac-server rate_limit, ac-types error) | 1 | GAPS FOUND, every gap FOLDED (capstone was a clean owner-confirmed GREEN at b4cbbe1, no waiver) | Brief `.clavity/seams/mailbox-auth-test-audit.md`, peer analysis `.clavity/scratch/mailbox-auth-ta/reply-r1.md` (both gitignored). Six gaps raised, all measured real or partly real and FOLDED in b215a99 (typo follow-up 9f13097), owner scoped "close all six": exact 404 for an unknown recipient (was any 4xx); header-only unsigned requests on a protected route cannot drain a victim's allowance; credential header length bounds (oversized, empty, nonce exactly at the limit); WWW-Authenticate only on 401; Retry-After on 429; spawn_purge_task purges by itself and survives a database outage. Each new test proven non-vacuous by a logic mutant that turned that test red (T1-T6, scratchpad mutants9.py). One agy discard was REJECTED by measurement and folded as a test: non-text header bytes are legal on the wire, `auth.rs` header_text returns 400, test `non_text_credential_header_is_400` goes red under a mutant. Second discard (REGISTERED and ACTIVE both accepted) stands as below-floor. Test hygiene found on the way: discovery search test used a fixed capability against `LIMIT 20` on a persistent database (now unique per run), and maintenance tests now run serially via `.config/nextest.toml` because the purge task deletes expired rows database-wide. No implementation source changed, so the capstone GREEN at b4cbbe1 still covers the code. Not covered by design (accepted boundaries in the brief): directory 500s, registration proof-of-possession, concurrent same-key idempotency. |
