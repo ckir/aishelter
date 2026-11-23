@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["QuorumDecision"],"fn":["compute_quorum"],"struct":["QuorumResult"]};

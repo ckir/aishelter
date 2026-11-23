@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["A2aError"],"fn":["a2a_discover","a2a_message","a2a_register","a2a_router","a2a_task","a2a_task_result","a2a_task_validate"],"struct":["A2aDiscoverRequest","A2aMessageRequest","A2aProfileFields","A2aRegisterRequest","A2aResponse","A2aTaskRequest","A2aTaskResultRequest","A2aTaskValidateRequest"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["agent_card","capability","directory_manifest","service_manifest","signature","validation"]};

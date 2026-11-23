@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CONNECTIONS","REFRESH_INTERVAL"],"fn":["create_iam_pool","generate_token","start_refresh_loop"],"struct":["RdsConnParams"]};

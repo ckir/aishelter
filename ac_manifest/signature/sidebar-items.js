@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ManifestSignatureError"],"fn":["canonicalize","sign_manifest","verify_manifest_signature"],"struct":["SignedManifest"]};

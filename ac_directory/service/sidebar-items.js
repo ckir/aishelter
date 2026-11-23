@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ServiceError"],"fn":["extract_schema_version"],"struct":["DirectoryRow","DirectoryService","ServiceRow"]};

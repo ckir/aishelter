@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["AWS_METADATA_IP","CONNECT_TIMEOUT_SECS","DEGRADED_THRESHOLD_MS","ONLINE_THRESHOLD_MS","TOTAL_TIMEOUT_SECS"],"enum":["HealthError"],"fn":["build_client","is_private_or_loopback","probe_service"],"struct":["HealthChecker","ServiceHealth"]};

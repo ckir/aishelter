@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["acknowledge_message","get_message","get_messages","routes","send_message"],"struct":["GetMessagesQuery","SendMessageRequest"]};

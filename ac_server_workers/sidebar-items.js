@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["fetch_fetch_glue","router"],"mod":["_worker_fetch"]};

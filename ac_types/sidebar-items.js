@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["agent","auth","card","error","message","receipt","reputation","task"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AgentCard","AgentEconomics","AgentEndpoints","AgentIdentity","Availability"]};

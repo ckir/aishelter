@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_validations","protected_routes","public_routes","routes","validate_task"],"struct":["ValidateRequest","ValidateResponse"]};

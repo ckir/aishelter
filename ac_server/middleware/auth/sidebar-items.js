@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ACTIVE_STATUSES","MAX_BODY_BYTES","MAX_ID_LEN","MAX_NONCE_LEN","MAX_SIGNATURE_LEN","MAX_TIMESTAMP_SKEW_SECS","NONCE_TTL_SECS","TIMESTAMP_HELP"],"enum":["AuthError"],"fn":["authenticate","header_text","required_header"],"struct":["AuthenticatedAgent"]};

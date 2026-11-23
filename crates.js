@@ -1,0 +1,2 @@
+window.ALL_CRATES = ["ac_a2a","ac_api","ac_aws","ac_crypto","ac_db","ac_directory","ac_discovery","ac_health","ac_mailbox","ac_manifest","ac_mcp","ac_metrics","ac_registry","ac_reputation","ac_runtime","ac_server","ac_server_workers","ac_tasks","ac_types","ac_validation","agent_commons","lambda_test","pg_proxy_lambda","test_config","test_conn"];
+//{"start":21,"fragment_lengths":[8,9,9,12,8,15,15,12,13,14,9,13,14,16,13,12,20,11,11,16,16,14,18,14,12]}
